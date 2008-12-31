@@ -1,5 +1,5 @@
 %debug
-%skeleton "lalr1.cc"
+%skeleton "glr.cc"
 %defines
 %define assert
 %define variant
@@ -30,9 +30,10 @@ typedef std::list<std::string> strings_type;
     std::ostream&
     operator<< (std::ostream& o, const strings_type& s)
     {
+      o << "{";
       std::copy (s.begin (), s.end (),
                  std::ostream_iterator<strings_type::value_type> (o, "\n"));
-      return o;
+      return o << "}";
     }
   }
 
