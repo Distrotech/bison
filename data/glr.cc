@@ -44,7 +44,8 @@
 #   filename member).
 
 # We require a pure interface using locations.
-m4_define([b4_percent_define(locations)], [])
+m4_define([b4_locations_flag], [1])
+m4_define([b4_location_constructors])
 m4_define([b4_pure_flag],      [1])
 
 # The header is mandatory.
@@ -54,12 +55,23 @@ b4_defines_if([],
 m4_include(b4_pkgdatadir/[c++.m4])
 b4_percent_define_ifdef([[location_type]], [],
                         [m4_include(b4_pkgdatadir/[location.cc])])
+b4_variant_if([m4_include(b4_pkgdatadir/[variant.hh])])
 
 m4_define([b4_parser_class_name],
           [b4_percent_define_get([[parser_class_name]])])
 
 # Save the parse parameters.
 m4_define([b4_parse_param_orig], m4_defn([b4_parse_param]))
+
+# b4_lex_wrapper_param
+# --------------------
+# Accumulate in b4_lex_param all the yylex arguments.
+# Yes, this is quite ugly...
+m4_define([b4_lex_wrapper_param],
+[b4_pure_if([[[[YYSTYPE *yylvalp]], [[yylvalp]]][]dnl
+b4_locations_if([, [[YYLTYPE *yyllocp], [yyllocp]]])])dnl
+m4_ifdef([b4_lex_param], [, ]b4_lex_param)])
+
 
 
 # b4_yy_symbol_print_generate
@@ -97,8 +109,19 @@ b4_c_ansi_function_decl([yyerror],
     [[const b4_namespace_ref::b4_parser_class_name::location_type *yylocationp],
                         [yylocationp]],
     b4_parse_param,
-    [[const char* msg], [msg]])])
+    [[const char* msg], [msg]])
 
+b4_lex_symbol_if([
+// A wrapper around a symbol_type returning yylex, to an old style yylex.
+b4_c_ansi_function_decl([yylex_wrapper],
+                        [static int],
+                        b4_lex_wrapper_param)
+# define YYLEX ]b4_c_function_call([yylex_wrapper], [int],
+[[[YYSTYPE*]], [[&yylval]]][]dnl
+b4_locations_if([, [[YYLTYPE*], [&yylloc]]])dnl
+m4_ifdef([b4_lex_param], [, ]b4_lex_param))[
+])
+])
 
 # Define yyerror.
 m4_append([b4_epilogue],
@@ -118,6 +141,20 @@ m4_append([b4_epilogue],
 [  yyparser.error (*yylocationp, msg);
 }
 
+]b4_lex_symbol_if([[
+// A wrapper around a symbol_type returning yylex, to an old style yylex.
+]b4_c_ansi_function_def([yylex_wrapper],
+                        [static int],
+                        b4_lex_wrapper_param)[
+{
+  ]b4_namespace_ref::b4_parser_class_name[::symbol_type s = ]dnl
+b4_c_function_call([yylex],
+                   [],
+                   m4_ifdef([b4_lex_param], b4_lex_param))[;
+  std::swap (*yylvalp, s.value);
+  std::swap (*yyllocp, s.location);
+  return s.token ();
+}]])[
 
 ]b4_namespace_open[
 ]dnl In this section, the parse param are the original parse_params.
@@ -140,6 +177,9 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
   {
     return ::yyparse (*this]b4_user_args[);
   }
+
+]b4_lex_symbol_if([], [b4_yytranslate_define
+b4_public_types_define])[
 
 #if YYDEBUG
   /*--------------------.
@@ -232,6 +272,7 @@ b4_copyright([Skeleton interface for Bison GLR parsers in C++],
 ]b4_percent_code_get([[requires]])[
 
 #include <stdexcept>
+]b4_parse_assert_if([#include <cassert>])[
 #include <string>
 #include <iostream>
 ]b4_percent_define_ifdef([[location_type]], [],
@@ -318,8 +359,20 @@ b4_copyright([Skeleton interface for Bison GLR parsers in C++],
     std::ostream* yycdebug_;
 #endif
 
+   typedef ]b4_int_type_for([b4_translate])[ token_number_type;
+   enum
+   {
+     yyeof_ = 0,
+   };
+
+   /// Convert a scanner token number \a t to a symbol number.
+   static inline token_number_type yytranslate_ (]b4_lex_symbol_if([token_type], [int])[ t);
+
 ]b4_parse_param_vars[
   };
+
+]b4_lex_symbol_if([b4_yytranslate_define
+b4_public_types_define])[
 
 ]dnl Redirections for glr.c.
 b4_percent_define_flag_if([[global_tokens_and_yystype]],
