@@ -788,7 +788,6 @@ b4_percent_define_if_define([parse.assert])
 b4_percent_define_if_define([parse.trace])
 b4_percent_define_if_define([variant])
 
-
 # b4_error_verbose_if([IF-ERRORS-ARE-VERBOSE], [IF-NOT])
 # ------------------------------------------------------
 # Map %define parse.error "(simple|verbose)" to b4_error_verbose_if and

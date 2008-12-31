@@ -116,8 +116,6 @@
 /size_max.m4
 /snprintf-posix.m4
 /snprintf.m4
-/socklen.m4
-/sockpfaf.m4
 /spawn-pipe.m4
 /spawn_h.m4
 /sprintf-posix.m4

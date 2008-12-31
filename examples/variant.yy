@@ -16,7 +16,8 @@
 */
 
 %debug
-%skeleton "lalr1.cc"
+%language "c++"
+%glr-parser
 %defines
 %define parse.assert
 %define variant
@@ -32,6 +33,8 @@ typedef std::list<std::string> strings_type;
 
 %code // *.cc
 {
+#include <boost/foreach.hpp>
+#define foreach BOOST_FOREACH
 #include <algorithm>
 #include <iostream>
 #include <iterator>
@@ -45,11 +48,13 @@ typedef std::list<std::string> strings_type;
   namespace std
   {
     std::ostream&
-    operator<< (std::ostream& o, const strings_type& s)
+    operator<< (std::ostream& o, const strings_type& ss)
     {
-      std::copy (s.begin (), s.end (),
-                 std::ostream_iterator<strings_type::value_type> (o, "\n"));
-      return o;
+      o << "{ (" << &ss << ") ";
+      //      o << ": " << ss.size() << ")";
+      foreach (const std::string& s, ss)
+        o << s << ", ";
+      return o << "}";
     }
   }
 
@@ -77,16 +82,31 @@ typedef std::list<std::string> strings_type;
 %%
 
 result:
-  list  { std::cout << $1 << std::endl; }
+  list  { std::cout << "list: " << $1 << std::endl; }
 ;
 
 list:
-  /* nothing */ { /* Generates an empty string list */ }
-| list item     { std::swap ($$, $1); $$.push_back ($2); }
+  /* nothing */
+  {
+    /* Generates an empty string list */
+    std::cerr << "Empty:  This is $$: " << $$ << std::endl;
+  }
+| list item
+  {
+    std::cerr << "Pre:  This is $$: " << $$ << std::endl;
+    std::cerr << "Pre:  This is $1: " << $1 << std::endl;
+    std::cerr << "Pre:  This is $2: " << $2 << std::endl;
+    $$ = $1;
+    $$.push_back ($2);
+    std::cerr << "Post: This is $$: " << $$ << std::endl;
+    std::cerr << "Post: This is $1: " << $1 << std::endl;
+    std::cerr << "Post: This is $2: " << $2 << std::endl;
+  }
 ;
 
 item:
-  TEXT          { std::swap ($$, $1); }
+  TEXT %dprec 1         { $$ = $1; }
+| TEXT %dprec 2         { $$ = $1; }
 | NUMBER        { $$ = string_cast ($1); }
 ;
 %%
@@ -110,12 +130,12 @@ yylex ()
   {
     case 0:
       return yy::parser::make_TEXT ("I have three numbers for you.", loc);
-    case 1:
-    case 2:
-    case 3:
-      return yy::parser::make_NUMBER (stage, loc);
-    case 4:
-      return yy::parser::make_TEXT ("And that's all!", loc);
+      //    case 1:
+      //    case 2:
+      //    case 3:
+      //      return yy::parser::make_NUMBER (stage * 100, loc);
+      //    case 4:
+      //      return yy::parser::make_TEXT ("And that's all!", loc);
     default:
       return yy::parser::make_END_OF_FILE (loc);
   }

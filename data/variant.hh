@@ -79,6 +79,11 @@ m4_map([b4_char_sizeof_], [$@])dnl
 # Define "variant".
 m4_define([b4_variant_define],
 [[
+#ifndef YYASSERT
+# include <cassert>
+# define YYASSERT assert
+#endif
+
   /// A char[S] buffer to store and retrieve objects.
   ///
   /// Sort of a variant, but does not keep track of the nature
@@ -86,14 +91,15 @@ m4_define([b4_variant_define],
   /// via the current state.
   template <size_t S>
   struct variant
-  {]b4_parse_assert_if([
-    /// Whether something is contained.
-    bool built;
-])[
+  {
+    /// Type of *this.
+    typedef variant<S> self_type;
+
     /// Empty construction.
     inline
     variant ()]b4_parse_assert_if([
-      : built (false)])[
+      : built (false)
+      , tname (YY_NULL)])[
     {}
 
     /// Instantiate a \a T in here.
@@ -101,8 +107,11 @@ m4_define([b4_variant_define],
     inline T&
     build ()
     {]b4_parse_assert_if([
-      assert (!built);
-      built = true;])[
+      YYASSERT (!built);
+      YYASSERT (!tname);
+      YYASSERT (sizeof (T) <= S);
+      built = true;
+      tname = typeid(T).name();])[
       return *new (buffer.raw) T;
     }
 
@@ -111,8 +120,11 @@ m4_define([b4_variant_define],
     inline T&
     build (const T& t)
     {]b4_parse_assert_if([
-      assert(!built);
-      built = true;])[
+      YYASSERT (!built);
+      YYASSERT (!tname);
+      YYASSERT (sizeof (T) <= S);
+      built = true;
+      tname = typeid(T).name();])[
       return *new (buffer.raw) T(t);
     }
 
@@ -120,8 +132,10 @@ m4_define([b4_variant_define],
     template <typename T>
     inline
     variant (const T& t)]b4_parse_assert_if([
-      : built (true)])[
+      : built (true)
+      , tname (typeid(T).name())])[
     {
+      YYASSERT (sizeof (T) <= S);
       new (buffer.raw) T(t);
     }
 
@@ -130,7 +144,9 @@ m4_define([b4_variant_define],
     inline T&
     as ()
     {]b4_parse_assert_if([
-      assert (built);])[
+      YYASSERT (built);
+      YYASSERT (tname == typeid(T).name());
+      YYASSERT (sizeof (T) <= S);])[
       return reinterpret_cast<T&>(buffer.raw);
     }
 
@@ -139,16 +155,21 @@ m4_define([b4_variant_define],
     inline const T&
     as () const
     {]b4_parse_assert_if([
-      assert(built);])[
+      YYASSERT (built);
+      YYASSERT (tname == typeid(T).name());
+      YYASSERT (sizeof (T) <= S);])[
       return reinterpret_cast<const T&>(buffer.raw);
     }
 
-    /// Swap the content with \a other.
+    /// Swap the content with \a other, of same type.
     template <typename T>
     inline void
     swap (variant<S>& other)
-    {
-      std::swap (as<T>(), other.as<T>());
+    {]b4_parse_assert_if([
+      YYASSERT (tname == other.tname);])[
+      std::swap (as<T>(), other.as<T>());]b4_parse_assert_if([
+      std::swap (built, other.built);
+      std::swap (tname, other.tname);])[
     }
 
     /// Assign the content of \a other to this.
@@ -162,15 +183,33 @@ m4_define([b4_variant_define],
       other.destroy<T>();
     }
 
+    /// Copy the content of \a other to this.
+    /// Destroys \a other.
+    template <typename T>
+    inline void
+    copy (const variant<S>& other)
+    {
+      build<T>(other.as<T>());
+    }
+
     /// Destroy the stored \a T.
     template <typename T>
     inline void
     destroy ()
     {
       as<T>().~T();]b4_parse_assert_if([
-      built = false;])[
+      built = false;
+      tname = YY_NULL;])[
     }
 
+    /// Prohibit blind copies.
+    //  private:
+    self_type& operator=(const self_type&)
+    {
+      abort();
+    }
+
+  private:
     /// A buffer large enough to store any of the semantic values.
     /// Long double is chosen as it has the strongest alignment
     /// constraints.
@@ -178,7 +217,11 @@ m4_define([b4_variant_define],
     {
       long double align_me;
       char raw[S];
-    } buffer;
+    } buffer;]b4_parse_assert_if([
+    /// Whether something is contained.
+    bool built;
+    /// If defined, the name of the stored type.
+    const char* tname;])[
   };
 ]])
 
