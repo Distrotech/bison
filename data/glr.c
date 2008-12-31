@@ -17,8 +17,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# b4_glr_cc_if([IF-TRUE], [IF-FALSE])
+# -----------------------------------
+m4_define([b4_glr_cc_if],
+          [m4_if(b4_skeleton, ["glr.cc"], $@)])
+
+# When glr.c is used from glr.cc, it has provided the version of
+# b4_symbol_value and b4_symbol_value_template that are needed.  c.m4
+# provides other definitions.  So save and restore the C++
+# definitions.
+
+b4_glr_cc_if([
+  m4_pushdef([b4_symbol_value])
+  m4_pushdef([b4_symbol_value_template])
+])
 
 m4_include(b4_pkgdatadir/[c.m4])
+
+b4_glr_cc_if([
+  m4_popdef([b4_symbol_value_template])
+  m4_popdef([b4_symbol_value])
+])
 
 ## ---------------- ##
 ## Default values.  ##
@@ -54,11 +73,11 @@ m4_define([b4_user_formals],
 
 # b4_lex_param
 # ------------
-# Accumule in b4_lex_param all the yylex arguments.
+# Accumulate in b4_lex_param all the yylex arguments.
 # Yes, this is quite ugly...
-m4_define([b4_lex_param],
-m4_dquote(b4_pure_if([[[[YYSTYPE *]], [[&yylval]]][]dnl
-b4_locations_if([, [[YYLTYPE *], [&yylloc]]])])dnl
+#m4_define([b4_lex_param],
+#m4_dquote(b4_pure_if([[[[YYSTYPE *yylvalp]], [[&yylval]]][]dnl
+#b4_locations_if([, [[YYLTYPE *yyllocp], [&yylloc]]])])dnl
 m4_ifdef([b4_lex_param], [, ]b4_lex_param)))
 
 
@@ -133,6 +152,12 @@ m4_define([b4_lhs_value],
 m4_define([b4_rhs_data],
 [((yyGLRStackItem const *)yyvsp)@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
 
+# We temporarily allow changes in the stack as we often transfer
+# ownership bw lhs and rhs, e.g. std::swap($$, $1).
+b4_glr_cc_if([
+  m4_define([b4_rhs_data],
+  [yyvsp@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
+])
 
 # b4_rhs_value(RULE-LENGTH, NUM, [TYPE])
 # --------------------------------------
@@ -490,7 +515,12 @@ dnl We probably ought to introduce a type for confl.
 
 
 /* YYLEX -- calling `yylex' with the right arguments.  */
-#define YYLEX ]b4_c_function_call([yylex], [int], b4_lex_param)[
+#ifndef YYLEX
+# define YYLEX ]b4_c_function_call([yylex], [int],
+   b4_pure_if([[[[YYSTYPE *yylvalp]], [[&yylval]]][]dnl
+b4_locations_if([, [[YYLTYPE *yyllocp], [&yylloc]]])])dnl
+m4_ifdef([b4_lex_param], [, ]b4_lex_param))[
+#endif
 
 ]b4_pure_if(
 [
@@ -689,7 +719,7 @@ typedef short int yyItemNum;
 typedef struct yyGLRState yyGLRState;
 typedef struct yyGLRStateSet yyGLRStateSet;
 typedef struct yySemanticOption yySemanticOption;
-typedef union yyGLRStackItem yyGLRStackItem;
+typedef ]b4_glr_cc_if([struct], [union])[ yyGLRStackItem yyGLRStackItem;
 typedef struct yyGLRStack yyGLRStack;
 
 struct yyGLRState {
@@ -704,7 +734,7 @@ struct yyGLRState {
   yyGLRState* yypred;
   /** Source position of the last token produced by my symbol */
   size_t yyposn;
-  union {
+  ]b4_glr_cc_if([struct], [union])[ {
     /** First in a chain of alternative reductions producing the
      *  non-terminal corresponding to this state, threaded through
      *  yynext.  */
@@ -744,7 +774,7 @@ struct yySemanticOption {
 
 /** Type of the items in the GLR stack.  The yyisState field
  *  indicates which item of the union is valid.  */
-union yyGLRStackItem {
+]b4_glr_cc_if([struct], [union])[ yyGLRStackItem {
   yyGLRState yystate;
   yySemanticOption yyoption;
 };
@@ -879,11 +909,15 @@ yyuserAction (yyRuleNum yyn, int yyrhslen, yyGLRStackItem* yyvsp,
   return yyerror (]b4_yyerror_args[YY_("syntax error: cannot back up")),     \
          yyerrok, yyerr
 
-  yylow = 1;
+  yylow = 1;]b4_variant_if([
+    /* Variants are always initialized to an empty instance of the
+       correct type. The default $$=$1 action is NOT applied when using
+       variants.  */
+    b4_symbol_variant([[yyr1@{yyn@}]], [(*yyvalp)], [build])], [[
   if (yyrhslen == 0)
     *yyvalp = yyval_default;
   else
-    *yyvalp = yyvsp[YYFILL (1-yyrhslen)].yystate.yysemantics.yysval;]b4_locations_if([[
+    *yyvalp = yyvsp[YYFILL (1-yyrhslen)].yystate.yysemantics.yysval;]])b4_locations_if([[
   YYLLOC_DEFAULT ((*yylocp), (yyvsp - yyrhslen), yyrhslen);
   yystackp->yyerror_range[1].yystate.yyloc = *yylocp;
 ]])[
@@ -1289,9 +1323,14 @@ yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
   yynewState->yylrState = yylrState;
   yynewState->yyposn = yyposn;
   yynewState->yyresolved = yytrue;
-  yynewState->yypred = yystackp->yytops.yystates[yyk];
-  yynewState->yysemantics.yysval = *yyvalp;]b4_locations_if([
-  yynewState->yyloc = *yylocp;])[
+  yynewState->yypred = yystackp->yytops.yystates[yyk];]b4_variant_if([[
+  new (&yynewState->yysemantics.yysval) YYSTYPE;
+  ]b4_symbol_variant([[yystos[yylrState]]], [[yynewState->yysemantics.yysval]],
+                     [build], [*yyvalp])],
+  [[yynewState->yysemantics.yysval = *yyvalp;]])[
+]b4_locations_if([b4_variant_if(
+  [[std::swap(yynewState->yyloc, *yylocp);]],
+  [[yynewState->yyloc = *yylocp;]])])[
   yystackp->yytops.yystates[yyk] = yynewState;
 
   YY_RESERVE_GLRSTACK (yystackp);
@@ -2497,8 +2536,7 @@ m4_popdef([b4_at_dollar])])dnl
               /* Note that yyconflicts were handled by yyprocessOneStack.  */
               YYDPRINTF ((stderr, "On stack %lu, ", (unsigned long int) yys));
               YY_SYMBOL_PRINT ("shifting", yytoken_to_shift, &yylval, &yylloc);
-              yyglrShift (&yystack, yys, yyaction, yyposn,
-                          &yylval]b4_locations_if([, &yylloc])[);
+              yyglrShift (&yystack, yys, yyaction, yyposn, &yylval]b4_locations_if([, &yylloc])[);
               YYDPRINTF ((stderr, "Stack %lu now in state #%d\n",
                           (unsigned long int) yys,
                           yystack.yytops.yystates[yys]->yylrState));
