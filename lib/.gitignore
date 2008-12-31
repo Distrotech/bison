@@ -15,6 +15,7 @@
 /asnprintf.c
 /basename-lgpl.c
 /basename.c
+/binary-io.c
 /binary-io.h
 /bitrotate.h
 /c++defs.h
@@ -268,8 +269,7 @@
 /xmalloc.c
 /xmemdup0.c
 /xmemdup0.h
+/xsize.c
 /xsize.h
 /xstrndup.c
 /xstrndup.h
-/binary-io.c
-/xsize.c

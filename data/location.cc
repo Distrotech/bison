@@ -147,6 +147,7 @@ m4_define([b4_location_define],
       : begin (b)
       , end (e)
     {
+      //      std::cerr << "Loc ctor 1" << std::endl;
     }
 
     /// Construct a 0-width location in \a p.
@@ -154,6 +155,7 @@ m4_define([b4_location_define],
       : begin (p)
       , end (p)
     {
+      //      std::cerr << "Loc ctor 2" << std::endl;
     }
 
     /// Construct a 0-width location in \a f, \a l, \a c.
@@ -163,6 +165,7 @@ m4_define([b4_location_define],
       : begin (f, l, c)
       , end (f, l, c)
     {
+      //      std::cerr << "Loc ctor 3" << std::endl;
     }
 
 ])[
