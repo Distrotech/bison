@@ -274,6 +274,10 @@ b4_copyright([Skeleton interface for Bison GLR parsers in C++],
 ]b4_percent_define_ifdef([[location_type]], [],
                          [[#include "location.hh"]])[
 
+]b4_variant_if([b4_namespace_open
+b4_variant_define
+b4_namespace_close])[
+
 /* Using locations.  */
 #define YYLSP_NEEDED ]b4_locations_if([1], [0])[
 
