@@ -1,7 +1,7 @@
 %debug
 %skeleton "glr.cc"
 %defines
-%define assert
+%define parse.assert
 %define variant
 %define lex_symbol
 %locations
