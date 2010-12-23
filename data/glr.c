@@ -2525,7 +2525,8 @@ m4_popdef([b4_at_dollar])])dnl
 	      yygetLRActions (yystate, yytoken_to_shift, &yyaction,
 			      &yyconflicts);
 	      /* Note that yyconflicts were handled by yyprocessOneStack.  */
-	      YYDPRINTF ((stderr, "On stack %lu, ", (unsigned long int) yys));
+	      YYDPRINTF ((stderr, "On stack %lu, loc = %x",
+			  (unsigned long int) yys, &yylloc));
 	      YY_SYMBOL_PRINT ("shifting", yytoken_to_shift, &yylval, &yylloc);
 	      yyglrShift (&yystack, yys, yyaction, yyposn,
 			  &yylval, &yylloc);
