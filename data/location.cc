@@ -178,6 +178,7 @@ b4_copyright([Locations for Bison parsers in C++])[
       : begin (b)
       , end (e)
     {
+      //      std::cerr << "Loc ctor 1" << std::endl;
     }
 
     /// Construct a 0-width location in \a p.
@@ -185,6 +186,7 @@ b4_copyright([Locations for Bison parsers in C++])[
       : begin (p)
       , end (p)
     {
+      //      std::cerr << "Loc ctor 2" << std::endl;
     }
 
     /// Construct a 0-width location in \a f, \a l, \a c.
@@ -194,6 +196,7 @@ b4_copyright([Locations for Bison parsers in C++])[
       : begin (f, l, c)
       , end (f, l, c)
     {
+      //      std::cerr << "Loc ctor 3" << std::endl;
     }
 
 ])[
