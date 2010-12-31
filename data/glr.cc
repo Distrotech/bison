@@ -149,7 +149,11 @@ m4_append([b4_epilogue],
 b4_c_function_call([yylex],
                    [],
                    m4_ifdef([b4_lex_param], b4_lex_param))[;
-  std::swap (*yylvalp, s.value);
+  std::cerr << "lex: CALLING SWAP" << s.type << std::endl;
+  ]b4_symbol_variant([[s.type]], [[(*yylvalp)]],
+		   [build], [s.value])[
+					    //  std::swap (*yylvalp, s.value);
+  std::cerr << "lex: CALLING SWAP: DONE" << std::endl;
   std::swap (*yyllocp, s.location);
   return s.token ();
 }]])[
