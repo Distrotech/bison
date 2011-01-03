@@ -169,14 +169,14 @@ m4_define([b4_variant_define],
     template <typename T>
     inline void
     swap (variant<S>& other)
-    {
+    {]b4_parse_assert_if([
       YYASSERT (tname == other.tname);
       std::cerr << "SWAPPING("
                 << (tname ? tname : "NULL")
                 << ", "
                 << (other.tname ? other.tname : "NULL")
                 << ")"
-                << std::endl;
+                << std::endl;])[
       std::swap (as<T>(), other.as<T>());]b4_parse_assert_if([
       std::swap (built, other.built);
       std::swap (tname, other.tname);])[
@@ -215,7 +215,7 @@ m4_define([b4_variant_define],
     }
 
     /// Prohibit blind copies.
-    self_type& operator=(const self_type& rhs)
+    self_type& operator=(const self_type&)
     {
       abort();
     }
