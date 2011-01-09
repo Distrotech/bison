@@ -1257,7 +1257,7 @@ yyexpandGLRStack (yyGLRStack* yystackp)
               YYRELOC (yyp0, yyp1, yys0->yypred, yystate);
           if (! yys0->yyresolved && yys0->yysemantics.yyfirstVal != YY_NULL)
             yys1->yysemantics.yyfirstVal =
-              YYRELOC(yyp0, yyp1, yys0->yysemantics.yyfirstVal, yyoption);
+              YYRELOC (yyp0, yyp1, yys0->yysemantics.yyfirstVal, yyoption);
         }
       else
         {
@@ -1271,7 +1271,7 @@ yyexpandGLRStack (yyGLRStack* yystackp)
     }
   if (yystackp->yysplitPoint != YY_NULL)
     yystackp->yysplitPoint = YYRELOC (yystackp->yyitems, yynewItems,
-                                 yystackp->yysplitPoint, yystate);
+                                      yystackp->yysplitPoint, yystate);
 
   for (yyn = 0; yyn < yystackp->yytops.yysize; yyn += 1)
     if (yystackp->yytops.yystates[yyn] != YY_NULL)
@@ -1700,10 +1700,8 @@ yymergeOptionSets (yySemanticOption* yyy0, yySemanticOption* yyy1)
         }
       else
         {
-          yySemanticOption** yyz0p;
-          yySemanticOption* yyz1;
-          yyz0p = &yys0->yysemantics.yyfirstVal;
-          yyz1 = yys1->yysemantics.yyfirstVal;
+          yySemanticOption** yyz0p = &yys0->yysemantics.yyfirstVal;
+          yySemanticOption* yyz1 = yys1->yysemantics.yyfirstVal;
           while (YYID (yytrue))
             {
               if (yyz1 == *yyz0p || yyz1 == YY_NULL)
