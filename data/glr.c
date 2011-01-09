@@ -1362,8 +1362,25 @@ yyremoveDeletes (yyGLRStack* yystackp)
     }
 }
 
-#define YY_STATE_COPY(To, From)
+static inline void
+yysymbolCopy (int& yychar1, YYSTYPE& yyval1, YYLTYPE& yyloc1,
+              const int& yychar2, const YYSTYPE& yyval2, const YYLTYPE& yyloc2)
+{
+  ]b4_symbol_variant([[YYTRANSLATE (yychar2)]], [[yyval1]],
+                     [copy], [yyval2])[
+  yychar1 = yychar2;
+  yyloc1 = yyloc2;
+}
 
+static inline void
+yysymbolSwap (int& yychar1, YYSTYPE& yyval1, YYLTYPE& yyloc1,
+              int& yychar2, YYSTYPE& yyval2, YYLTYPE& yyloc2)
+{
+  ]b4_symbol_variant([[YYTRANSLATE (yychar2)]], [[yyval1]],
+                     [swap], [yyval2])[
+  std::swap (yychar1, yychar2);
+  std::swap (yyloc1,  yyloc2);
+}
 
 /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
  * state YYLRSTATE, at input position YYPOSN, with (resolved) semantic
@@ -1787,32 +1804,23 @@ yyresolveAction (yySemanticOption* yyopt, yyGLRStack* yystackp,
   if (yynrhs == 0)
     /* Set default location.  */
     yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].yystate.yyloc = yyopt->yystate->yyloc;]])[
-  YY_SYMBOL_PRINT("yyresolveAction: BEFORE",
-                  YYTRANSLATE(yychar), &yylval, &yylloc);
+                                                                                  //  YY_SYMBOL_PRINT("yyresolveAction: BEFORE",
+                                                                                  //              YYTRANSLATE(yychar), &yylval, &yylloc);
 
-  ]b4_symbol_variant([[YYTRANSLATE (yychar)]], [[yylval_current]],
-                   [swap], [yylval])[
-                                     //  std::swap (yylval_current, yylval);
-  std::swap (yychar_current, yychar);]b4_locations_if([
-  std::swap (yylloc_current, yylloc);])[
+  yysymbolSwap (yychar_current, yylval_current, yylloc_current,
+                yychar, yylval, yylloc);
+  yysymbolCopy (yychar, yylval, yylloc,
+                yyopt->yyrawchar, yyopt->yyval, yyopt->yyloc);
 
-  yychar = yyopt->yyrawchar;
-  ]b4_symbol_variant([[YYTRANSLATE (yychar)]], [[yylval]],
-                   [copy], [yyopt->yyval])[
-                                     //  yylval = yyopt->yyval;
-  yylloc = yyopt->yyloc;
-  YY_SYMBOL_PRINT("yyresolveAction: DURING",
-                  YYTRANSLATE(yychar), &yylval, &yylloc);
+  //  YY_SYMBOL_PRINT("yyresolveAction: DURING",
+  //              YYTRANSLATE(yychar), &yylval, &yylloc);
   yyflag = yyuserAction (yyopt->yyrule, yynrhs,
                          yyrhsVals + YYMAXRHS + YYMAXLEFT - 1,
                          yystackp, yyvalp]b4_locuser_args[);
-  std::swap (yychar, yychar_current);
-  ]b4_symbol_variant([[YYTRANSLATE (yychar)]], [[yylval_current]],
-                   [swap], [yylval])[
-                                     //  std::swap (yylval, yylval_current);]b4_locations_if([
-  std::swap (yylloc, yylloc_current);])[
-  YY_SYMBOL_PRINT("yyresolveAction: AFTER",
-                  YYTRANSLATE(yychar), &yylval, &yylloc);
+  yysymbolSwap (yychar, yylval, yylloc,
+                yychar_current, yylval_current, yylloc_current);
+  //  YY_SYMBOL_PRINT("yyresolveAction: AFTER",
+  //              YYTRANSLATE(yychar), &yylval, &yylloc);
   return yyflag;
 }
 
@@ -1929,18 +1937,15 @@ yyresolveLocations (yyGLRState* yys1, int yyn1,
               yyrhsloc[0].yystate.yyloc = yyprevious->yyloc;
             }
 
-          yychar_current = yychar;
-          yylval_current = yylval;
-          yylloc_current = yylloc;
+          yysymbolSwap (yychar_current, yylval_current, yylloc_current,
+                        yychar, yylval, yylloc);
+          yysymbolCopy (yychar, yylval, yylloc,
+                        yyoption->yyrawchar, yyoption->yyval, yyoption->yyloc);
 
-          yychar = yyoption->yyrawchar;
-          yylval = yyoption->yyval;
-          yylloc = yyoption->yyloc;
           YYLLOC_DEFAULT ((yys1->yyloc), yyrhsloc, yynrhs);
 
-          yychar = yychar_current;
-          yylval = yylval_current;
-          yylloc = yylloc_current;
+          yysymbolSwap (yychar, yylval, yylloc,
+                        yychar_current, yylval_current, yylloc_current);
         }
     }
 }]])[
