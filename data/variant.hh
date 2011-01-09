@@ -215,6 +215,7 @@ m4_define([b4_variant_define],
     }
 
     /// Prohibit blind copies.
+    //  private:
     self_type& operator=(const self_type&)
     {
       abort();
