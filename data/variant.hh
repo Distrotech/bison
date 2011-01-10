@@ -90,12 +90,7 @@ m4_define([b4_variant_define],
   /// via the current state.
   template <size_t S>
   struct variant
-  {]b4_parse_assert_if([
-    /// Whether something is contained.
-    bool built;
-    /// If defined, the name of the stored type.
-    const char* tname;
-])[
+  {
     /// Type of *this.
     typedef variant<S> self_type;
 
@@ -188,7 +183,6 @@ m4_define([b4_variant_define],
     inline void
     build (variant<S>& other)
     {
-      std::cerr << "STEAL" << std::endl;
       build<T>();
       swap<T>(other);
       other.destroy<T>();
@@ -200,7 +194,6 @@ m4_define([b4_variant_define],
     inline void
     copy (const variant<S>& other)
     {
-      std::cerr << "COPY" << std::endl;
       build<T>(other.as<T>());
     }
 
@@ -229,7 +222,11 @@ m4_define([b4_variant_define],
     {
       long double align_me;
       char raw[S];
-    } buffer;
+    } buffer;]b4_parse_assert_if([
+    /// Whether something is contained.
+    bool built;
+    /// If defined, the name of the stored type.
+    const char* tname;])[
   };
 ]])
 
