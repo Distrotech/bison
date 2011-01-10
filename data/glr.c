@@ -725,16 +725,17 @@ typedef struct yyGLRStack yyGLRStack;
 struct yyGLRState {
   yyGLRState()
   {
-    std::cerr << "Default ctor: " << this << std::endl;
+    //    std::cerr << "Default ctor: " << this << std::endl;
   }
   yyGLRState(const yyGLRState& that)
   {
-    std::cerr << "Cpy ctor" << std::endl;
+    abort();
+    //    std::cerr << "Cpy ctor" << std::endl;
     *this = that;
   }
   yyGLRState& operator=(const yyGLRState& that)
   {
-    std::cerr << "Assign: " << this << " = " << &that << std::endl;
+    //    std::cerr << "Assign: " << this << " = " << &that << std::endl;
     assert(that.yyisState);
     yyisState = that.yyisState;
     yyresolved = that.yyresolved;
@@ -884,7 +885,7 @@ yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
       yyvsp[i].yystate.yyresolved = s->yyresolved;
       if (s->yyresolved)
         {
-          std::cerr << "Resolved, copy" << std::endl;
+          //      std::cerr << "Resolved, copy" << std::endl;
   ]b4_symbol_variant([[yystos[s->yylrState]]],
                      [[yyvsp[i].yystate.yysemantics.yysval]],
                      [copy], [s->yysemantics.yysval])[;
@@ -925,7 +926,7 @@ yyuserAction (yyRuleNum yyn, int yyrhslen, yyGLRStackItem* yyvsp,
               yyGLRStack* yystackp,
               YYSTYPE* yyvalp]b4_locuser_formals[)
 {
-  std::cerr << "yyuserAction" << std::endl;
+  //  std::cerr << "yyuserAction" << std::endl;
   yybool yynormal __attribute__ ((__unused__)) =
     (yystackp->yysplitPoint == YY_NULL);
   int yylow;
@@ -967,7 +968,7 @@ yyuserAction (yyRuleNum yyn, int yyrhslen, yyGLRStackItem* yyvsp,
       default: break;
     }
 
-  std::cerr << "yyuserAction: return yyok" << std::endl;
+  //  std::cerr << "yyuserAction: return yyok" << std::endl;
   return yyok;
 # undef yyerrok
 # undef YYABORT
@@ -1142,8 +1143,8 @@ static void
 yyaddDeferredAction (yyGLRStack* yystackp, size_t yyk, yyGLRState* yystate,
                      yyGLRState* yyrhs, yyRuleNum yyrule)
 {
-  std::cerr << "yyaddDeferredAction" << std::endl;
-  yypdumpstack(yystackp);
+  //  std::cerr << "yyaddDeferredAction" << std::endl;
+  //  yypdumpstack(yystackp);
   yySemanticOption* yynewOption =
     &yynewGLRStackItem (yystackp, yyfalse)->yyoption;
   assert (!yynewOption->yyisState);
@@ -1167,7 +1168,7 @@ yyaddDeferredAction (yyGLRStack* yystackp, size_t yyk, yyGLRState* yystate,
   yystate->yysemantics.yyfirstVal = yynewOption;
 
   YY_RESERVE_GLRSTACK (yystackp);
-  std::cerr << "yyaddDeferredAction: done" << std::endl;
+  //  std::cerr << "yyaddDeferredAction: done" << std::endl;
 }
 
                                 /* GLRStacks */
@@ -1234,7 +1235,7 @@ yyexpandGLRStack (yyGLRStack* yystackp)
   size_t yynewSize;
   size_t yyn;
   size_t yysize = yystackp->yynextFree - yystackp->yyitems;
-  std::cerr << "yyexpandGLRStack" << std::endl;
+  //  std::cerr << "yyexpandGLRStack" << std::endl;
   if (YYMAXDEPTH - YYHEADROOM < yysize)
     yyMemoryExhausted (yystackp);
   yynewSize = 2*yysize;
@@ -1282,7 +1283,7 @@ yyexpandGLRStack (yyGLRStack* yystackp)
   yystackp->yyitems = yynewItems;
   yystackp->yynextFree = yynewItems + yysize;
   yystackp->yyspaceLeft = yynewSize - yysize;
-  std::cerr << "yyexpandGLRStack: done" << std::endl;
+  //  std::cerr << "yyexpandGLRStack: done" << std::endl;
 }
 #endif
 
@@ -1392,14 +1393,14 @@ yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
 {
   yyGLRState* yynewState = &yynewGLRStackItem (yystackp, yytrue)->yystate;
 
-  std::cerr << "Shifting at: " << *yylocp << std::endl;
+  //  std::cerr << "Shifting at: " << *yylocp << std::endl;
   //  std::cerr << "Shifting: " << *yyvalp << std::endl;
 
   yynewState->yylrState = yylrState;
   yynewState->yyposn = yyposn;
   yynewState->yyresolved = yytrue;
   yynewState->yypred = yystackp->yytops.yystates[yyk];]b4_variant_if([[
-  new (&yynewState->yysemantics.yysval) YYSTYPE;
+                                                                       //  new (&yynewState->yysemantics.yysval) YYSTYPE;
   ]b4_symbol_variant([[yystos[yylrState]]], [[yynewState->yysemantics.yysval]],
                      [copy], [*yyvalp])], [[
   yynewState->yysemantics.yysval = *yyvalp;]])[
@@ -1418,7 +1419,7 @@ static inline void
 yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
                  size_t yyposn, yyGLRState* yyrhs, yyRuleNum yyrule)
 {
-  std::cerr << "yyglrShiftDefer" << std::endl;
+  //  std::cerr << "yyglrShiftDefer" << std::endl;
   yyGLRState* yynewState = &yynewGLRStackItem (yystackp, yytrue)->yystate;
   assert(yynewState->yyisState);
   yynewState->yylrState = yylrState;
@@ -1430,7 +1431,7 @@ yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
 
   /* Invokes YY_RESERVE_GLRSTACK.  */
   yyaddDeferredAction (yystackp, yyk, yynewState, yyrhs, yyrule);
-  std::cerr << "yyglrShiftDefer: done" << std::endl;
+  //  std::cerr << "yyglrShiftDefer: done" << std::endl;
 }
 
 #if !YYDEBUG
@@ -2083,18 +2084,18 @@ yycompressStack (yyGLRStack* yystackp]b4_user_formals[)
 
   while (yyr != YY_NULL)
     {
-      std::cerr << "Assign nextfree" << std::endl;
+      //      std::cerr << "Assign nextfree" << std::endl;
       //      YY_STATE_PRINT("TO",  yystackp->yynextFree->yystate);
       //      YY_STATE_PRINT("FROM", *yyr);
       yystackp->yynextFree->yystate = *yyr;
-      std::cerr << "Assign nextfree: done" << std::endl;
+      //      std::cerr << "Assign nextfree: done" << std::endl;
       yyr = yyr->yypred;
       yystackp->yynextFree->yystate.yypred = &yystackp->yynextFree[-1].yystate;
       yystackp->yytops.yystates[0] = &yystackp->yynextFree->yystate;
       yystackp->yynextFree += 1;
       yystackp->yyspaceLeft -= 1;
     }
-  std::cerr << "Compressed stacks" << std::endl;
+  //  std::cerr << "Compressed stacks" << std::endl;
 }
 
 static YYRESULTTAG
