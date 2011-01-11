@@ -45,7 +45,8 @@
 
 # We require a pure interface using locations.
 m4_define([b4_locations_flag], [1])
-m4_define([b4_location_constructors])
+# FIXME: this is possible with variants, not without.
+b4_variant_if([m4_define([b4_location_constructors])])
 m4_define([b4_pure_flag],      [1])
 
 # The header is mandatory.

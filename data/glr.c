@@ -265,7 +265,7 @@ b4_defines_if([[#include "@basename(]b4_spec_defines_file[@)"]],
 # define YYTOKEN_TABLE ]b4_token_table[
 #endif
 
-]b4_variant_if([/* Default (constant) value used for initialization for null
+]b4_variant_if([], [/* Default (constant) value used for initialization for null
    right-hand sides.  Unlike the standard yacc.c template,
    here we set the default value of $$ to a zeroed-out value.
    Since the default value is undefined, this behavior is
@@ -710,13 +710,13 @@ typedef short int yyItemNum;
 typedef struct yyGLRState yyGLRState;
 typedef struct yyGLRStateSet yyGLRStateSet;
 typedef struct yySemanticOption yySemanticOption;
-typedef ]b4_glr_cc_if([struct], [union])[ yyGLRStackItem yyGLRStackItem;
+typedef ]b4_variant_if([struct], [union])[ yyGLRStackItem yyGLRStackItem;
 typedef struct yyGLRStack yyGLRStack;
 
-struct yyGLRState {
+struct yyGLRState {]b4_variant_if([[
   yyGLRState() 
   { 
-    //    std::cerr << "Default ctor: " << this << std::endl;
+    // std::cerr << "Default ctor: " << this << std::endl;
   }
   yyGLRState(const yyGLRState& that)
   {
@@ -727,7 +727,7 @@ struct yyGLRState {
   yyGLRState& operator=(const yyGLRState& that) 
   {
     //    std::cerr << "Assign: " << this << " = " << &that << std::endl; 
-    assert(that.yyisState);
+    YYASSERT (that.yyisState);
     yyisState = that.yyisState;
     yyresolved = that.yyresolved;
     yylrState = that.yylrState;
@@ -741,7 +741,7 @@ struct yyGLRState {
   yynewState->yysemantics.yysval = *yyvalp;]])[
     yyloc = that.yyloc;
     return *this; 
-  }
+}]])[
   /** Type tag: always true.  */
   yybool yyisState;
   /** Type tag for yysemantics.  If true, yysval applies, otherwise
@@ -753,7 +753,7 @@ struct yyGLRState {
   yyGLRState* yypred;
   /** Source position of the last token produced by my symbol */
   size_t yyposn;
-  ]b4_glr_cc_if([struct], [union])[ {
+  ]b4_variant_if([struct], [union])[ {
     /** First in a chain of alternative reductions producing the
      *  non-terminal corresponding to this state, threaded through
      *  yynext.  */
@@ -793,7 +793,7 @@ struct yySemanticOption {
 
 /** Type of the items in the GLR stack.  The yyisState field
  *  indicates which item of the union is valid.  */
-]b4_glr_cc_if([struct], [union])[ yyGLRStackItem {
+]b4_variant_if([struct], [union])[ yyGLRStackItem {
   yyGLRState yystate;
   yySemanticOption yyoption;
 };
@@ -876,11 +876,11 @@ yyfillin (yyGLRStackItem *yyvsp, int yylow0, int yylow1)
       yyvsp[i].yystate.yyresolved = s->yyresolved;
       if (s->yyresolved)
 	{
-	  //	  std::cerr << "Resolved, copy" << std::endl;
-  ]b4_symbol_variant([[yystos[s->yylrState]]],
-                     [[yyvsp[i].yystate.yysemantics.yysval]],
-                     [copy], [s->yysemantics.yysval])[;
-						      //    yyvsp[i].yystate.yysemantics.yysval = s->yysemantics.yysval;
+	  //	  std::cerr << "Resolved, copy" << std::endl;]b4_variant_if([[
+           ]b4_symbol_variant([[yystos[s->yylrState]]],
+                              [[yyvsp[i].yystate.yysemantics.yysval]],
+                              [copy], [s->yysemantics.yysval])], [[
+           yyvsp[i].yystate.yysemantics.yysval = s->yysemantics.yysval;]])[;
 	}
       else
 	/* The effect of using yysval or yyloc (in an immediate rule) is
@@ -1140,7 +1140,7 @@ yyaddDeferredAction (yyGLRStack* yystackp, size_t yyk, yyGLRState* yystate,
   //  yypdumpstack(yystackp);
   yySemanticOption* yynewOption =
     &yynewGLRStackItem (yystackp, yyfalse)->yyoption;
-  assert (!yynewOption->yyisState);
+  YYASSERT (!yynewOption->yyisState);
   yynewOption->yystate = yyrhs;
   yynewOption->yyrule = yyrule;
   if (yystackp->yytops.yylookaheadNeeds[yyk])
@@ -1356,6 +1356,7 @@ yyremoveDeletes (yyGLRStack* yystackp)
     }
 }
 
+]b4_variant_if([[
 static inline void
 yysymbolCopy (int& yychar1, YYSTYPE& yyval1, YYLTYPE& yyloc1,
 	      const int& yychar2, const YYSTYPE& yyval2, const YYLTYPE& yyloc2)
@@ -1375,7 +1376,20 @@ yysymbolSwap (int& yychar1, YYSTYPE& yyval1, YYLTYPE& yyloc1,
   std::swap (yychar1, yychar2);
   std::swap (yyloc1,  yyloc2);
 }
+#define YY_SYMBOL_COPY yysymbolCopy
+#define YY_SYMBOL_SWAP yysymbolSwap
+]],
+[[
+#define YY_SYMBOL_COPY(Yychar1, Yyval1, Yyloc1, Yychar2, Yyval2, Yyloc2) \
+  do {									\
+    Yychar1 = Yychar2;							\
+    Yyval1  = Yyval2;							\
+    Yyloc1  = Yyloc2;							\
+  } while (0)
 
+#define YY_SYMBOL_SWAP(Yychar1, Yyval1, Yyloc1, Yychar2, Yyval2, Yyloc2) \
+    YY_SYMBOL_COPY(Yychar1, Yyval1, Yyloc1, Yychar2, Yyval2, Yyloc2)
+]])[
 /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
  * state YYLRSTATE, at input position YYPOSN, with (resolved) semantic
  * value *YYVALP and source location *YYLOCP.  */
@@ -1412,7 +1426,7 @@ yyglrShiftDefer (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
 {
   //  std::cerr << "yyglrShiftDefer" << std::endl;
   yyGLRState* yynewState = &yynewGLRStackItem (yystackp, yytrue)->yystate;
-  assert(yynewState->yyisState);
+  YYASSERT (yynewState->yyisState);
   yynewState->yylrState = yylrState;
   yynewState->yyposn = yyposn;
   yynewState->yyresolved = yyfalse;
@@ -1609,7 +1623,7 @@ yysplitStack (yyGLRStack* yystackp, size_t yyk)
     }
   if (yystackp->yytops.yysize >= yystackp->yytops.yycapacity)
     {
-      assert(0);// FIXME: Beware of realloc in C++.
+      YYASSERT (0);// FIXME: Beware of realloc in C++.
       yyGLRState** yynewStates;
       yybool* yynewLookaheadNeeds;
 
@@ -1797,18 +1811,18 @@ yyresolveAction (yySemanticOption* yyopt, yyGLRStack* yystackp,
 										  //  YY_SYMBOL_PRINT("yyresolveAction: BEFORE",
 										  //		  YYTRANSLATE(yychar), &yylval, &yylloc);
 
-  yysymbolSwap (yychar_current, yylval_current, yylloc_current,
-		yychar, yylval, yylloc);
-  yysymbolCopy (yychar, yylval, yylloc,
-		yyopt->yyrawchar, yyopt->yyval, yyopt->yyloc);
+  YY_SYMBOL_SWAP (yychar_current, yylval_current, yylloc_current,
+		  yychar, yylval, yylloc);
+  YY_SYMBOL_COPY (yychar, yylval, yylloc,
+		  yyopt->yyrawchar, yyopt->yyval, yyopt->yyloc);
 
   //  YY_SYMBOL_PRINT("yyresolveAction: DURING",
   //		  YYTRANSLATE(yychar), &yylval, &yylloc);
   yyflag = yyuserAction (yyopt->yyrule, yynrhs,
 			 yyrhsVals + YYMAXRHS + YYMAXLEFT - 1,
 			 yyvalp, yylocp, yystackp]b4_user_args[);
-  yysymbolSwap (yychar, yylval, yylloc,
-		yychar_current, yylval_current, yylloc_current);
+  YY_SYMBOL_SWAP (yychar, yylval, yylloc,
+		  yychar_current, yylval_current, yylloc_current);
   //  YY_SYMBOL_PRINT("yyresolveAction: AFTER",
   //		  YYTRANSLATE(yychar), &yylval, &yylloc);
   return yyflag;
@@ -1894,22 +1908,22 @@ yyresolveLocations (yyGLRState* yys1, int yyn1,
       yyresolveLocations (yys1->yypred, yyn1 - 1, yystackp]b4_user_args[);
       if (!yys1->yyresolved)
 	{
-	  yySemanticOption *yyoption;
+	  yySemanticOption *yyopt;
 	  yyGLRStackItem yyrhsloc[1 + YYMAXRHS];
 	  int yynrhs;
 	  int yychar_current;
 	  YYSTYPE yylval_current;
 	  YYLTYPE yylloc_current;
-	  yyoption = yys1->yysemantics.yyfirstVal;
-	  YYASSERT (yyoption != NULL);
-	  yynrhs = yyrhsLength (yyoption->yyrule);
+	  yyopt = yys1->yysemantics.yyfirstVal;
+	  YYASSERT (yyopt != NULL);
+	  yynrhs = yyrhsLength (yyopt->yyrule);
 	  if (yynrhs > 0)
 	    {
 	      yyGLRState *yys;
 	      int yyn;
-	      yyresolveLocations (yyoption->yystate, yynrhs,
+	      yyresolveLocations (yyopt->yystate, yynrhs,
 				  yystackp]b4_user_args[);
-	      for (yys = yyoption->yystate, yyn = yynrhs;
+	      for (yys = yyopt->yystate, yyn = yynrhs;
 		   yyn > 0;
 		   yys = yys->yypred, yyn -= 1)
 		yyrhsloc[yyn].yystate.yyloc = yys->yyloc;
@@ -1923,19 +1937,19 @@ yyresolveLocations (yyGLRState* yys1, int yyn1,
 		 detected.  Thus the location of the previous state (but not
 		 necessarily the previous state itself) is guaranteed to be
 		 resolved already.  */
-	      yyGLRState *yyprevious = yyoption->yystate;
+	      yyGLRState *yyprevious = yyopt->yystate;
 	      yyrhsloc[0].yystate.yyloc = yyprevious->yyloc;
 	    }
 
-	  yysymbolSwap (yychar_current, yylval_current, yylloc_current,
-			yychar, yylval, yylloc);
-	  yysymbolCopy (yychar, yylval, yylloc,
-			yyoption->yyrawchar, yyoption->yyval, yyoption->yyloc);
+	  YY_SYMBOL_SWAP (yychar_current, yylval_current, yylloc_current,
+			  yychar, yylval, yylloc);
+	  YY_SYMBOL_COPY (yychar, yylval, yylloc,
+			  yyopt->yyrawchar, yyopt->yyval, yyopt->yyloc);
 
 	  YYLLOC_DEFAULT ((yys1->yyloc), yyrhsloc, yynrhs);
 
-	  yysymbolSwap (yychar, yylval, yylloc,
-			yychar_current, yylval_current, yylloc_current);
+	  YY_SYMBOL_SWAP (yychar, yylval, yylloc,
+			  yychar_current, yylval_current, yylloc_current);
 	}
     }
 }]])[
@@ -2027,13 +2041,12 @@ yyresolveValue (yyGLRState* yys, yyGLRStack* yystackp]b4_user_formals[)
 
   if (yyflag == yyok)
     {
-      yys->yyresolved = yytrue;
-      //      yys->yysemantics.yysval = yysval;
-    ]b4_variant_if([[
-		     new (&yys->yysemantics.yysval) YYSTYPE;
-  ]b4_symbol_variant([[yystos[yys->yylrState]]], [[yys->yysemantics.yysval]],
-                     [build], [yysval])], [[
-  yys->yysemantics.yysval = *yyvalp;]])[
+      yys->yyresolved = yytrue;]b4_variant_if([[
+      new (&yys->yysemantics.yysval) YYSTYPE; // FIXME: Useful?
+      ]b4_symbol_variant([[yystos[yys->yylrState]]],
+                         [[yys->yysemantics.yysval]],
+                         [build], [yysval])], [[
+      yys->yysemantics.yysval = yysval;]])[
     }
   else
     yys->yysemantics.yyfirstVal = NULL;
@@ -2059,7 +2072,7 @@ yyresolveStack (yyGLRStack* yystackp]b4_user_formals[)
 }
 
 static void
-yycompressStack (yyGLRStack* yystackp]b4_user_formals[)
+yycompressStack (yyGLRStack* yystackp)
 {
   yyGLRState* yyp, *yyq, *yyr;
 
@@ -2398,7 +2411,7 @@ yyrecoverSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
   for (yyk += 1; yyk < yystackp->yytops.yysize; yyk += 1)
     yymarkStackDeleted (yystackp, yyk);
   yyremoveDeletes (yystackp);
-  yycompressStack (yystackp]b4_user_args[);
+  yycompressStack (yystackp);
 
   /* Now pop stack until we find a state that shifts the error token.  */
   yystackp->yyerrState = 3;
@@ -2638,7 +2651,7 @@ m4_popdef([b4_at_dollar])])dnl
 	    {
 	      YYCHK1 (yyresolveStack (&yystack]b4_user_args[));
 	      YYDPRINTF ((stderr, "Returning to deterministic operation.\n"));
-	      yycompressStack (&yystack]b4_user_args[);
+	      yycompressStack (&yystack);
 	      break;
 	    }
 	}
