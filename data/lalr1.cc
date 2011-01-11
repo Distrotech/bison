@@ -744,10 +744,11 @@ m4_popdef([b4_at_dollar])])dnl
         try
         {
 ]b4_lex_symbol_if(
-[          yyla = b4_c_function_call([yylex], [symbol_type],
-                                     m4_ifdef([b4_lex_param], b4_lex_param));],
-[          yyla.type = yytranslate_ (b4_c_function_call([yylex], [int],
-                                     [[YYSTYPE*], [&yyla.value]][]dnl
+[        symbol_type yylookahead = b4_c_function_call([yylex], [symbol_type],
+                                   m4_ifdef([b4_lex_param], b4_lex_param));
+	 std::swap(yylookahead, yyla);],
+[        yyla.type = yytranslate_ (b4_c_function_call([yylex], [int],
+				     [[YYSTYPE*], [&yyla.value]][]dnl
 b4_locations_if([, [[location*], [&yyla.location]]])dnl
 m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
         }

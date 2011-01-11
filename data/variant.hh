@@ -80,6 +80,7 @@ m4_map([b4_char_sizeof_], [$@])dnl
 m4_define([b4_variant_define],
 [[
 #ifndef YYASSERT
+# include <cassert>
 # define YYASSERT assert
 #endif
 
@@ -165,13 +166,7 @@ m4_define([b4_variant_define],
     inline void
     swap (variant<S>& other)
     {]b4_parse_assert_if([
-      YYASSERT (tname == other.tname);
-      std::cerr << "SWAPPING("
-                << (tname ? tname : "NULL")
-                << ", "
-                << (other.tname ? other.tname : "NULL")
-                << ")"
-                << std::endl;])[
+      YYASSERT (tname == other.tname);])[
       std::swap (as<T>(), other.as<T>());]b4_parse_assert_if([
       std::swap (built, other.built);
       std::swap (tname, other.tname);])[
