@@ -1414,7 +1414,7 @@ yyglrShift (yyGLRStack* yystackp, size_t yyk, yyStateNum yylrState,
   yynewState->yyposn = yyposn;
   yynewState->yyresolved = yytrue;
   yynewState->yypred = yystackp->yytops.yystates[yyk];]b4_variant_if([[
-                                                                       //  new (&yynewState->yysemantics.yysval) YYSTYPE;
+  //  new (&yynewState->yysemantics.yysval) YYSTYPE;
   ]b4_symbol_variant([[yystos[yylrState]]], [[yynewState->yysemantics.yysval]],
                      [copy], [*yyvalp])], [[
   yynewState->yysemantics.yysval = *yyvalp;]])[
@@ -1632,7 +1632,7 @@ yysplitStack (yyGLRStack* yystackp, size_t yyk)
     }
   if (yystackp->yytops.yysize >= yystackp->yytops.yycapacity)
     {
-      YYASSERT (0);// FIXME: Beware of realloc in C++.
+      ]b4_variant_if([YYASSERT (!"Not implemented");])[
       yyGLRState** yynewStates;
       yybool* yynewLookaheadNeeds;
 
@@ -1817,8 +1817,8 @@ yyresolveAction (yySemanticOption* yyopt, yyGLRStack* yystackp,
   if (yynrhs == 0)
     /* Set default location.  */
     yyrhsVals[YYMAXRHS + YYMAXLEFT - 1].yystate.yyloc = yyopt->yystate->yyloc;]])[
-                                                                                  //  YY_SYMBOL_PRINT("yyresolveAction: BEFORE",
-                                                                                  //              YYTRANSLATE(yychar), &yylval, &yylloc);
+  //  YY_SYMBOL_PRINT("yyresolveAction: BEFORE",
+  //		      YYTRANSLATE(yychar), &yylval, &yylloc);
 
   YY_SYMBOL_SWAP (yychar_current, yylval_current, yylloc_current,
                   yychar, yylval, yylloc);
