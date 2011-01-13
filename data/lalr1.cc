@@ -351,6 +351,20 @@ b4_namespace_close])[
 b4_public_types_define])[
 ]b4_namespace_close[
 
+]b4_variant_if([[namespace std
+{
+  // FIXME: this is useless.
+  inline
+  void
+  swap(]b4_namespace_ref::b4_parser_class_name[::symbol_type& s1, ]b4_namespace_ref::b4_parser_class_name[::symbol_type& s2)
+  {
+    ]b4_symbol_variant([[s1.type]], [[s1.value]],
+                       [swap], [s2.value])[
+    std::swap (s1.type, s2.type);]b4_locations_if([
+    std::swap (s1.location, s2.location);])[
+  }
+}]])[
+
 ]b4_percent_define_flag_if([[global_tokens_and_yystype]],
 [b4_token_defines(b4_tokens)
 
@@ -746,7 +760,7 @@ m4_popdef([b4_at_dollar])])dnl
 ]b4_lex_symbol_if(
 [        symbol_type yylookahead = b4_c_function_call([yylex], [symbol_type],
                                    m4_ifdef([b4_lex_param], b4_lex_param));
-	 std::swap(yylookahead, yyla);],
+	 yyla.move(yylookahead);],
 [        yyla.type = yytranslate_ (b4_c_function_call([yylex], [int],
 				     [[YYSTYPE*], [&yyla.value]][]dnl
 b4_locations_if([, [[location*], [&yyla.location]]])dnl
