@@ -1380,7 +1380,7 @@ yysymbolSwap (int& yychar1, YYSTYPE& yyval1]b4_locations_if([, YYLTYPE& yyloc1])
 {
   ]b4_symbol_variant([[YYTRANSLATE (yychar2)]], [[yyval1]],
                      [swap], [yyval2])[
-  std::swap (yychar1, yychar2);[b4_locations_if([[
+  std::swap (yychar1, yychar2);]b4_locations_if([[
   std::swap (yyloc1,  yyloc2);]])[
 }
 #define YY_SYMBOL_COPY yysymbolCopy
