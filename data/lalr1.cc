@@ -298,7 +298,7 @@ m4_if(b4_prefix, [yy], [],
 ]b4_user_pre_prologue
 
 b4_defines_if([[
-#include "@basename(]b4_spec_defines_file[@)"]])[
+#include "@relative(]b4_spec_defines_file[@, ]b4_parser_file_name[@)"]])[
 
 /* User implementation prologue.  */
 ]b4_user_post_prologue

@@ -36,6 +36,7 @@
 #include "complain.h"
 #include "getargs.h"
 #include "files.h"
+#include "relpath.h"
 #include "scan-skel.h"
 
 #define YY_DECL static int skel_lex (void)
@@ -264,6 +265,19 @@ at_directive_perform (int at_directive_argc,
             fail_for_at_directive_too_many_args (at_directive_argv[0]);
             break;
         }
+    }
+  else if (0 == strcmp (at_directive_argv[0], "@relative"))
+    {
+      if (at_directive_argc < 3)
+        fail_for_at_directive_too_few_args (at_directive_argv[0]);
+      if (at_directive_argc > 3)
+        fail_for_at_directive_too_many_args (at_directive_argv[0]);
+      {
+	char *rel = convert_abs_rel(at_directive_argv[1],
+				    at_directive_argv[2]);
+	fputs (rel, yyout);
+	free (rel);
+      }
     }
   else if (0 == strcmp (at_directive_argv[0], "@output"))
     {

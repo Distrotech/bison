@@ -202,7 +202,7 @@ m4_if(b4_prefix, [yy], [],
 
 ]b4_null_define[
 
-]b4_defines_if([[#include "@basename(]b4_spec_defines_file[@)"]],
+]b4_defines_if([[#include "@relative(]b4_spec_defines_file[@, ]b4_parser_file_name[@)"]],
                [b4_shared_declarations])[
 
 /* Enabling traces.  */
