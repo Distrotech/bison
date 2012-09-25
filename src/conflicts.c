@@ -578,9 +578,7 @@ conflicts_print (void)
       {
         if (expected != total)
           complain (complaint,
-                    ngettext ("%d shift/reduce conflict, expected %d",
-                              "%d shift/reduce conflicts, expected %d",
-                              total),
+                    _("shift/reduce conflicts: %d found, %d expected"),
                     total, expected);
       }
     else if (total)
@@ -602,9 +600,7 @@ conflicts_print (void)
       {
         if (expected != total)
           complain (complaint,
-                    ngettext ("%d reduce/reduce conflict, expected %d",
-                              "%d reduce/reduce conflicts, expected %d",
-                              total),
+                    _("reduce/reduce conflicts: %d found, %d expected"),
                     total, expected);
       }
     else if (total)

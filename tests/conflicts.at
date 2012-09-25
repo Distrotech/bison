@@ -945,7 +945,7 @@ exp: exp OP exp | NUM;
 ]])
 
 AT_BISON_CHECK([-o input.c input.y], 1, [],
-[[input.y: 1 shift/reduce conflict, expected 0
+[[input.y: shift/reduce conflicts: 1 found, 0 expected
 ]])
 AT_CLEANUP
 
@@ -981,7 +981,7 @@ exp: exp OP exp | NUM;
 ]])
 
 AT_BISON_CHECK([-o input.c input.y], 1, [],
-[[input.y: 1 shift/reduce conflict, expected 2
+[[input.y: shift/reduce conflicts: 1 found, 2 expected
 ]])
 AT_CLEANUP
 
@@ -1000,7 +1000,7 @@ a: 'a';
 ]])
 
 AT_BISON_CHECK([-o input.c input.y], 1, [],
-[[input.y: 1 reduce/reduce conflict, expected 0
+[[input.y: reduce/reduce conflicts: 1 found, 0 expected
 ]])
 AT_CLEANUP
 
@@ -1561,24 +1561,26 @@ for gram in sr-rr sr rr; do
       cat $gram.y >> $file
 
       # Count actual conflicts.
-      case $gram in
-        (sr|sr-rr) sr_count=1 sr_conflicts="1 shift/reduce conflict";;
-        (*)        sr_count=0 sr_conflicts="0 shift/reduce conflicts";;
+      case $gram:$sr_exp_i in
+        (sr:|sr-rr:)
+          sr_count=1 sr_conflicts="1 shift/reduce conflict";;
+        (sr:1|sr-rr:1)
+          sr_count=1 sr_conflicts=;;
+        (sr:*|sr-rr:*)
+          sr_count=1
+          sr_conflicts="shift/reduce conflicts: 1 found, $sr_exp_i expected";;
+        (*)        sr_count=0 sr_conflicts=;;
       esac
-      if test $sr_count -ne $sr_exp; then
-        sr_conflicts="$sr_conflicts, expected $sr_exp"
-      elif test -n "$sr_exp_i" || test $sr_count -eq 0; then
-        sr_conflicts=
-      fi
-      case $gram in
-        (rr|sr-rr) rr_count=1 rr_conflicts="1 reduce/reduce conflict";;
-        (*)        rr_count=0 rr_conflicts="0 reduce/reduce conflicts";;
+      case $gram:$rr_exp_i in
+        (rr:|sr-rr:)
+          rr_count=1 rr_conflicts="1 reduce/reduce conflict";;
+        (rr:1|sr-rr:1)
+          rr_count=1 rr_conflicts=;;
+        (rr:*|sr-rr:*)
+          rr_count=1
+          rr_conflicts="reduce/reduce conflicts: 1 found, $rr_exp_i expected";;
+        (*)        rr_count=0 rr_conflicts=;;
       esac
-      if test $rr_count -ne $rr_exp; then
-        rr_conflicts="$rr_conflicts, expected $rr_exp"
-      elif test -n "$rr_exp_i" || test $rr_count -eq 0; then
-        rr_conflicts=
-      fi
 
       # Run tests.
       if test $sr_count -eq $sr_exp && test $rr_count -eq $rr_exp; then
