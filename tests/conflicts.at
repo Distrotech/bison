@@ -1561,6 +1561,10 @@ for gram in sr-rr sr rr; do
       cat $gram.y >> $file
 
       # Count actual conflicts.
+      case $sr_exp_i:$rr_exp_i in
+        ?:) rr_exp_i=0;;
+        :?) sr_exp_i=0;;
+      esac
       case $gram:$sr_exp_i in
         (sr:|sr-rr:)
           sr_count=1 sr_conflicts="1 shift/reduce conflict";;
