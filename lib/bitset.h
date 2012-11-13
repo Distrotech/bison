@@ -180,7 +180,7 @@ bitset_test (bitset bset, bitset_bindex bitno)
 #define bitset_size(SRC) BITSET_SIZE_ (SRC)
 
 /* Change size of bitset.  */
-extern void bitset_resize (bitset, bitset_bindex);
+#define bitset_resize(DST, SIZE) BITSET_RESIZE_ (DST, SIZE)
 
 /* Return number of bits set in bitset SRC.  */
 #define bitset_count(SRC) BITSET_COUNT_ (SRC)

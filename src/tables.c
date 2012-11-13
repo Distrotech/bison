@@ -21,6 +21,7 @@
 #include <config.h>
 #include "system.h"
 
+#include <bitset.h>
 #include <bitsetv.h>
 
 #include "complain.h"
@@ -110,7 +111,9 @@ base_number *base = NULL;
    computation equals to BASE_MINIMUM, later mapped to BASE_NINF to
    keep parser tables small.  */
 base_number base_ninf = 0;
-static base_number *pos = NULL;
+static bitset pos_set = NULL;
+/* Boolean bitset representing an integer set in the range
+   -nstates..table_size (as an upper bound) */
 
 static unsigned int *conflrow;
 unsigned int *conflict_table;
@@ -157,12 +160,14 @@ table_grow (int desired)
   conflict_table = xnrealloc (conflict_table, table_size,
                               sizeof *conflict_table);
   check = xnrealloc (check, table_size, sizeof *check);
+  bitset_resize (pos_set, table_size + nstates);
 
   for (/* Nothing. */; old_size < table_size; ++old_size)
     {
       table[old_size] = 0;
       conflict_table[old_size] = 0;
       check[old_size] = -1;
+      bitset_reset(pos_set, nstates + old_size);
     }
 }
 
@@ -690,10 +695,8 @@ pack_vector (vector_number vector)
               ok = false;
           }
 
-        if (ok)
-          for (k = 0; k < vector; k++)
-            if (pos[k] == res)
-              ok = false;
+        if (ok && bitset_test (pos_set, nstates + res))
+          ok = false;
       }
 
       if (ok)
@@ -755,7 +758,8 @@ pack_table (void)
   int i;
 
   base = xnmalloc (nvectors, sizeof *base);
-  pos = xnmalloc (nentries, sizeof *pos);
+  pos_set = bitset_create (table_size + nstates, BITSET_FRUGAL);
+  bitset_zero (pos_set);
   table = xcalloc (table_size, sizeof *table);
   conflict_table = xcalloc (table_size, sizeof *conflict_table);
   check = xnmalloc (table_size, sizeof *check);
@@ -781,7 +785,8 @@ pack_table (void)
         /* Action of I were already coded for S.  */
         place = base[s];
 
-      pos[i] = place;
+      /* Place now belongs to pos set. */
+      bitset_set (pos_set, nstates + place);
       base[order[i]] = place;
     }
 
@@ -789,7 +794,7 @@ pack_table (void)
   base_ninf = table_ninf_remap (base, nvectors, BASE_MINIMUM);
   table_ninf = table_ninf_remap (table, high + 1, ACTION_NUMBER_MINIMUM);
 
-  free (pos);
+  bitset_free (pos_set);
 }
 
 
@@ -817,6 +822,7 @@ tables_generate (void)
   conflict_tos = xcalloc (nvectors, sizeof *conflict_tos);
   tally = xcalloc (nvectors, sizeof *tally);
   width = xnmalloc (nvectors, sizeof *width);
+  pos_set = bitset_create (table_size + nstates, BITSET_FRUGAL);
 
   token_actions ();
 
