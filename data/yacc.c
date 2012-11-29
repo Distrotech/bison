@@ -97,7 +97,7 @@ m4_define([b4_yyerror_arg_loc_if],
 # Arguments passed to yyerror: user args plus yylloc.
 m4_define([b4_yyerror_args],
 [b4_yyerror_arg_loc_if([&yylloc, ])dnl
-m4_ifset([b4_parse_param], [b4_c_args(b4_parse_param), ])])
+m4_ifset([b4_parse_param], [b4_args(b4_parse_param), ])])
 
 
 # b4_lex_param
