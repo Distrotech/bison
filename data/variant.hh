@@ -74,17 +74,22 @@ m4_map([b4_char_sizeof_], [$@])dnl
 ])])
 
 
-# b4_variant_define
-# -----------------
-# Define "variant".
-m4_define([b4_variant_define],
+# b4_variant_includes
+# -------------------
+# The needed includes for variants support.
+m4_define([b4_variant_includes],
 [b4_parse_assert_if([[#include <typeinfo>]])[
 #ifndef YYASSERT
 # include <cassert>
 # define YYASSERT assert
 #endif
+]])
 
-  /// A char[S] buffer to store and retrieve objects.
+# b4_variant_define
+# -----------------
+# Define "variant".
+m4_define([b4_variant_define],
+[[  /// A char[S] buffer to store and retrieve objects.
   ///
   /// Sort of a variant, but does not keep track of the nature
   /// of the stored data, since that knowledge is available
@@ -240,7 +245,8 @@ m4_define([b4_semantic_type_declare],
     {]b4_type_foreach([b4_char_sizeof])[};
 
     /// Symbol semantic values.
-    typedef variant<sizeof(union_type)> semantic_type;])
+    typedef variant<sizeof(union_type)> semantic_type;dnl
+])
 
 
 # How the semantic value is extracted when using variants.

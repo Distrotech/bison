@@ -141,7 +141,7 @@ m4_define([b4_shared_declarations],
 # include "stack.hh"
 ]b4_locations_if([b4_percent_define_ifdef([[api.location.type]], [],
                                           [[# include "location.hh"]])])])[
-
+]b4_variant_if([b4_variant_includes])[
 ]b4_YYDEBUG_define[
 
 ]b4_namespace_open[
