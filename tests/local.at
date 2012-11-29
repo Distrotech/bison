@@ -119,6 +119,7 @@ m4_pushdef([AT_SKEL_CC_IF],
 [m4_bmatch([$3], [%language "[Cc]\+\+"\|%skeleton "[a-z0-9]+\.cc"], [$1], [$2])])
 m4_pushdef([AT_SKEL_JAVA_IF],
 [m4_bmatch([$3], [%language "[Jj][Aa][Vv][Aa]"\|%skeleton "[a-z0-9]+\.java"], [$1], [$2])])
+# The target language: "c", "c++", or "java".
 m4_pushdef([AT_LANG],
 [AT_SKEL_JAVA_IF([java],
                  [AT_SKEL_CC_IF([c++],
@@ -140,6 +141,13 @@ m4_pushdef([AT_LOCATION_TYPE_IF],
 [m4_bmatch([$3], [%define \(api\.location\.type\|location_type\)], [$1], [$2])])
 m4_pushdef([AT_PARAM_IF],
 [m4_bmatch([$3], [%parse-param], [$1], [$2])])
+# Comma-terminated list of formals parse-parameters.
+# E.g., %parse-param { int x } %parse-param {int y} -> "int x, int y, ".
+# FIXME: Support grouped parse-param.
+m4_pushdef([AT_PARSE_PARAMS])
+m4_bpatsubst([$3], [%parse-param { *\([^{}]*[^{} ]\) *}],
+             [m4_append([AT_PARSE_PARAMS], [\1, ])])
+
 m4_pushdef([AT_PURE_IF],
 [m4_bmatch([$3], [%define  *api\.pure\|%pure-parser],
            [m4_bmatch([$3], [%define  *api\.pure *"?false"?], [$2], [$1])],
@@ -152,6 +160,8 @@ m4_pushdef([AT_NAME_PREFIX],
 [m4_bmatch([$3], [\(%define api\.prefix\|%name-prefix\) ".*"],
            [m4_bregexp([$3], [\(%define api\.prefix\|%name-prefix\) "\([^""]*\)"], [\2])],
            [yy])])
+m4_pushdef([AT_TOKEN_CTOR_IF],
+[m4_bmatch([$3], [%define api.token.constructor], [$1], [$2])])
 m4_pushdef([AT_TOKEN_PREFIX],
 [m4_bmatch([$3], [%define api.token.prefix ".*"],
            [m4_bregexp([$3], [%define api.token.prefix "\(.*\)"], [\1])])])
@@ -241,11 +251,14 @@ m4_popdef([AT_YYERROR_SEES_LOC_IF])
 m4_popdef([AT_YYERROR_ARG_LOC_IF])
 m4_popdef([AT_API_PREFIX])
 m4_popdef([AT_API_prefix])
+m4_popdef([AT_TOKEN_PREFIX])
+m4_popdef([AT_TOKEN_CTOR_IF])
 m4_popdef([AT_NAME_PREFIX])
 m4_popdef([AT_GLR_OR_PARAM_IF])
 m4_popdef([AT_PURE_AND_LOC_IF])
 m4_popdef([AT_LOCATION_TYPE_IF])
 m4_popdef([AT_LOCATION_IF])
+m4_popdef([AT_PARSE_PARAMS])
 m4_popdef([AT_PARAM_IF])
 m4_popdef([AT_LEXPARAM_IF])
 m4_popdef([AT_YACC_IF])
@@ -355,7 +368,7 @@ static
 # Must be called inside a AT_BISON_OPTION_PUSHDEFS/POPDEFS pair.
 m4_define([AT_YYERROR_FORMALS],
 [m4_case(AT_LANG,
-[c], [AT_YYERROR_ARG_LOC_IF([AT_YYLTYPE *llocp, ])[const char *msg]])[]dnl
+[c], [AT_YYERROR_ARG_LOC_IF([AT_YYLTYPE *llocp, ])AT_PARSE_PARAMS [const char *msg]])[]dnl
 ])
 
 m4_define([AT_YYERROR_PROTOTYPE],
@@ -379,16 +392,11 @@ m4_define([AT_YYERROR_DEFINE],
 /* A C error reporting function.  */
 static
 ]AT_YYERROR_PROTOTYPE[
-{
-]AT_YYERROR_SEES_LOC_IF([[
-  fprintf (stderr, "%d.%d",
-           ]AT_LOC_FIRST_LINE[, ]AT_LOC_FIRST_COLUMN[);
-  if (]AT_LOC_FIRST_LINE[ != ]AT_LOC_LAST_LINE[)
-    fprintf (stderr, "-%d.%d",
-             ]AT_LOC_LAST_LINE[,  ]AT_LOC_LAST_COLUMN[ - 1);
-  else if (]AT_LOC_FIRST_COLUMN[ != ]AT_LOC_LAST_COLUMN[ - 1)
-    fprintf (stderr, "-%d",
-             ]AT_LOC_LAST_COLUMN[ - 1);
+{]m4_bpatsubst(m4_defn([AT_PARSE_PARAMS]),
+              [[^,]+[^A-Za-z_0-9]\([A-Za-z_][A-Za-z_0-9]*\), *], [
+  YYUSE(\1);])dnl
+AT_YYERROR_SEES_LOC_IF([[
+  YY_LOCATION_PRINT (stderr, ]AT_LOC[);
   fprintf (stderr, ": ");]])[
   fprintf (stderr, "%s\n", msg);
 }]],
@@ -445,10 +453,6 @@ m4_define([AT_BISON_CHECK],
 [m4_null_if([$2], [AT_BISON_CHECK_XML($@)])
 AT_BISON_CHECK_NO_XML($@)])
 
-m4_define([AT_BISON_WERROR_MSG],
-          [[bison: warnings being treated as errors]])
-
-
 # AT_BISON_CHECK_(BISON_ARGS, [OTHER_AT_CHECK_ARGS])
 # --------------------------------------------------
 # Low-level macro to run bison once.
@@ -465,59 +469,36 @@ m4_define([AT_BISON_CHECK_WARNINGS],
       [m4_null_if([$2], [AT_BISON_CHECK_WARNINGS_($@)])])])
 
 m4_define([AT_BISON_CHECK_WARNINGS_],
-[[# Defining POSIXLY_CORRECT causes bison to complain if options
-        # are added after the grammar file name, so skip these checks
-        # in that case.
-        if test -z "${POSIXLY_CORRECT+set}"; then
+[[# Defining POSIXLY_CORRECT causes bison to complain if options are
+# added after the grammar file name, so skip these checks in that
+# case.
+if test "$POSIXLY_CORRECT_IS_EXPORTED" = false; then
           ]AT_SAVE_SPECIAL_FILES[
 
-          # To avoid expanding it repeatedly, store specified stdout.
-          ]AT_DATA([expout], [$3])[
+  # To avoid expanding it repeatedly, store specified stdout.
+  ]AT_DATA([expout], [$3])[
 
-          # Run with -Werror.
+  # Run with -Werror.
   ]AT_BISON_CHECK_([$1[ -Werror]], [[1]], [expout], [stderr])[
 
-          # Build expected stderr up to and including the "warnings being
-          # treated as errors" message.
-          ]AT_DATA([[at-bison-check-warnings]], [$4])[
-          at_bison_check_first=`sed -n \
-            '/: warning: /{=;q;}' at-bison-check-warnings`
-          : ${at_bison_check_first:=1}
-          at_bison_check_first_tmp=`sed -n \
-            '/conflicts: [0-9].*reduce$/{=;q;}' at-bison-check-warnings`
-          : ${at_bison_check_first_tmp:=1}
-          if test $at_bison_check_first_tmp -lt $at_bison_check_first; then
-            at_bison_check_first=$at_bison_check_first_tmp
-          fi
-          if test $at_bison_check_first -gt 1; then
-            sed -n "1,`expr $at_bison_check_first - 1`"p \
-              at-bison-check-warnings > experr
-          fi
-          echo ']AT_BISON_WERROR_MSG[' >> experr
+  # Build expected stderr up to and including the "warnings being
+  # treated as errors" message.
+  ]AT_DATA([[experr]], [$4])[
+  $PERL -pi -e 's{(.*): warning: (.*)\[-W(.*)\]$}
+                 {$][1: error: $][2\@<:@-Werror=$][3@:>@}' experr
+  ]AT_CHECK([[sed 's,.*/$,,' stderr 1>&2]], [[0]], [[]], [experr])[
 
-          # Finish building expected stderr and check.  Unlike warnings,
-          # complaints cause bison to exit early.  Thus, with -Werror, bison
-          # does not necessarily report all warnings that it does without
-          # -Werror, but it at least reports one.
-          at_bison_check_last=`sed -n '$=' stderr`
-          : ${at_bison_check_last:=1}
-          at_bison_check_last=`expr $at_bison_check_last - 1`
-          sed -n "$at_bison_check_first,$at_bison_check_last"p \
-            at-bison-check-warnings >> experr
-          ]AT_CHECK([[sed 's,.*/\(]AT_BISON_WERROR_MSG[\)$,\1,' \
-                      stderr 1>&2]], [[0]], [[]], [experr])[
-
-          # Now check --warnings=error.
-          cp stderr experr
+  # Now check --warnings=error.
+  cp stderr experr
   ]AT_BISON_CHECK_([$1[ --warnings=error]], [[1]], [expout], [experr])[
 
-          # Now check -Wnone and --warnings=none by making sure that
-          # -Werror doesn't change the exit status when -Wnone or
-          # --warnings=none is specified.
+  # Now check -Wnone and --warnings=none by making sure that
+  # -Werror doesn't change the exit status when -Wnone or
+  # --warnings=none is specified.
   ]AT_BISON_CHECK_([$1[ -Wnone -Werror]], [[0]], [expout])[
   ]AT_BISON_CHECK_([$1[ --warnings=none -Werror]], [[0]], [expout])[
 
-          ]AT_RESTORE_SPECIAL_FILES[
+  ]AT_RESTORE_SPECIAL_FILES[
 fi]dnl
 ])
 
@@ -556,10 +537,10 @@ m4_define([AT_BISON_CHECK_XML],
   AT_CHECK([[$XSLTPROC \
              `]]AT_QUELL_VALGRIND[[ bison --print-datadir`/xslt/xml2text.xsl \
              xml-tests/test.xml]], [[0]], [expout])
-  [cp xml-tests/test.dot expout]
+  [sort xml-tests/test.dot > expout]
   AT_CHECK([[$XSLTPROC \
              `]]AT_QUELL_VALGRIND[[ bison --print-datadir`/xslt/xml2dot.xsl \
-             xml-tests/test.xml]], [[0]], [expout])
+             xml-tests/test.xml | sort]], [[0]], [expout])
   [rm -rf xml-tests expout]
   AT_RESTORE_SPECIAL_FILES
 [fi]])
@@ -593,7 +574,10 @@ m4_define([AT_QUELL_VALGRIND],
 # otherwise pass "-c"; this is a hack.  The default SOURCES is OUTPUT
 # with trailing .o removed, and ".c" appended.
 m4_define([AT_COMPILE],
-[AT_CHECK(m4_join([ ],
+[AT_CHECK([case $POSIXLY_CORRECT_IS_EXPORTED:$C_COMPILER_POSIXLY_CORRECT in
+  true:false) echo 'cannot compile properly with POSIXLY_CORRECT' && exit 77;;
+esac])
+AT_CHECK(m4_join([ ],
                   [$CC $CFLAGS $CPPFLAGS],
                   [m4_bmatch([$1], [[.]], [-c], [$LDFLAGS])],
                   [-o $1],
@@ -676,6 +660,44 @@ m4_define([AT_FULL_COMPILE],
                           [$1.c],
                           m4_ifval($2, [[$1-$2.c]]),
                            m4_ifval($3, [[$1-$3.c]])))])
+])
+
+
+
+# AT_SKIP_IF_CANNOT_LINK_C_AND_CXX
+# --------------------------------
+# Check that we can link together C and C++ objects.
+m4_define([AT_SKIP_IF_CANNOT_LINK_C_AND_CXX],
+[AT_DATA([c-and-cxx.h],
+[[#ifdef __cplusplus
+extern "C"
+{
+#endif
+  int fortytwo (void);
+#ifdef __cplusplus
+}
+#endif
+]])
+AT_DATA([c-only.c],
+[[#include "c-and-cxx.h"
+int
+main (void)
+{
+  return fortytwo () == 42 ? 0 : 1;
+}
+]])
+AT_DATA([cxx-only.cc],
+[[#include "c-and-cxx.h"
+int fortytwo ()
+{
+  return 42;
+}
+]])
+AT_COMPILE([c-only.o], [c-only.c])
+AT_COMPILE_CXX([cxx-only.o], [cxx-only.cc])
+AT_CHECK([$CXX $CXXFLAGS $CPPFLAGS $LDFLAGS c-only.o cxx-only.o -o c-and-cxx ||
+          exit 77], [ignore], [ignore])
+AT_PARSER_CHECK([./c-and-cxx])
 ])
 
 
@@ -827,9 +849,9 @@ m4_if(m4_index(m4_quote($3), [no-xml]), -1,
                                [0], [], m4_dquote($7))
 
 m4_if(m4_index(m4_quote($3), [last-state]), -1,
-      [AT_CHECK([[sed -n '/^state 0$/,$p' input.output]], [[0]],
+      [AT_CHECK([[sed -n '/^State 0$/,$p' input.output]], [[0]],
                 m4_dquote($8))],
-      [AT_CHECK([[sed -n 's/^state //p' input.output | tail -1]], [[0]],
+      [AT_CHECK([[sed -n 's/^State //p' input.output | tail -1]], [[0]],
                 m4_dquote($8)[[
 ]])])
 

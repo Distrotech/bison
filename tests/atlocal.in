@@ -38,6 +38,9 @@ NO_WERROR_CXXFLAGS='@CXXFLAGS@ @WARN_CXXFLAGS@ @WARN_CXXFLAGS_TEST@'
   CFLAGS="$NO_WERROR_CFLAGS   @WERROR_CFLAGS@"
 CXXFLAGS="$NO_WERROR_CXXFLAGS @WERROR_CXXFLAGS@"
 
+# C++ variants break strict aliasing analysis.
+NO_STRICT_ALIAS_CXXFLAGS='@NO_STRICT_ALIAS_CXXFLAGS@'
+
 # If 'exit 77'; skip all C++ tests; otherwise ':'.
 BISON_CXX_WORKS='@BISON_CXX_WORKS@'
 
@@ -79,9 +82,12 @@ LIBS="$abs_top_builddir/lib/libbison.a @LIBS@ @INTLLIBS@"
 # Empty if no xsltproc was found
 : ${XSLTPROC='@XSLTPROC@'}
 
-
-# Handle --compile-c-with-cxx here, once CXX and CXXFLAGS are known.
-if "$at_arg_compile_c_with_cxx"; then
-  CC=$CXX
-  CFLAGS=$CXXFLAGS
+# Don't just check if $POSIXLY_CORRECT is set, as Bash, when launched
+# as /bin/sh, sets the shell variable POSIXLY_CORRECT to y, but not
+# the environment variable.
+: ${C_COMPILER_POSIXLY_CORRECT='@C_COMPILER_POSIXLY_CORRECT@'}
+if env | grep '^POSIXLY_CORRECT=' >/dev/null; then
+  POSIXLY_CORRECT_IS_EXPORTED=true
+else
+  POSIXLY_CORRECT_IS_EXPORTED=false
 fi

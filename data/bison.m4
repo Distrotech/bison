@@ -697,17 +697,18 @@ m4_define([b4_percent_define_default],
             m4_define([b4_percent_define_syncline(]$1[)], [[]])])])
 
 
-# b4_percent_define_if_define(VARIABLE)
-# -------------------------------------
-# Define b4_VARIABLE_if that executes its $1 or $2 depending whether
+# b4_percent_define_if_define(NAME, [VARIABLE = NAME])
+# ----------------------------------------------------
+# Define b4_NAME_if that executes its $1 or $2 depending whether
 # VARIABLE was %defined.  The characters `.' and `-' in VARIABLE are mapped
 # to `_'.
 m4_define([b4_percent_define_if_define_],
 [m4_define(m4_bpatsubst([b4_$1_if], [[-.]], [_]),
-           [b4_percent_define_flag_if([$1], [$2], [$3])])])
+           [b4_percent_define_flag_if(m4_default([$2], [$1]),
+                                      [$3], [$4])])])
 m4_define([b4_percent_define_if_define],
-[b4_percent_define_default([[$1]], [[false]])
-b4_percent_define_if_define_([$1], $[1], $[2])])
+[b4_percent_define_default([m4_default([$2], [$1])], [[false]])
+b4_percent_define_if_define_([$1], [$2], $[1], $[2])])
 
 
 # b4_percent_define_check_values(VALUES)
@@ -795,10 +796,10 @@ m4_percent_define_default([[api.token.prefix]], [[]])
 
 # b4_parse_assert_if([IF-ASSERTIONS-ARE-USED], [IF-NOT])
 # b4_parse_trace_if([IF-DEBUG-TRACES-ARE-ENABLED], [IF-NOT])
-# b4_lex_symbol_if([IF-YYLEX-RETURNS-A-COMPLETE-SYMBOL], [IF-NOT])
+# b4_token_ctor_if([IF-YYLEX-RETURNS-A-TOKEN], [IF-NOT])
 # b4_variant_if([IF-VARIANT-ARE-USED], [IF-NOT])
 # ----------------------------------------------
-b4_percent_define_if_define([lex_symbol])
+b4_percent_define_if_define([token_ctor], [api.token.constructor])
 b4_percent_define_if_define([locations])     # Whether locations are tracked.
 b4_percent_define_if_define([parse.assert])
 b4_percent_define_if_define([parse.trace])

@@ -280,6 +280,7 @@ Operator Precedence
 * Precedence Only::   How to specify precedence only.
 * Precedence Examples::  How these features are used in the previous example.
 * How Precedence::    How they work.
+* Non Operators::     Using precedence for general conflicts.
 
 Tuning LR
 
@@ -298,6 +299,8 @@ Handling Context Dependencies
 Debugging Your Parser
 
 * Understanding::     Understanding the structure of your parser.
+* Graphviz::          Getting a visual representation of the parser.
+* Xml::               Getting a markup representation of the parser.
 * Tracing::           Tracing the execution of your parser.
 
 Tracing Your Parser
@@ -893,10 +896,7 @@ parses a vastly simplified form of Pascal type declarations.
 @end group
 
 %%
-
-@group
 type_decl: TYPE ID '=' type ';' ;
-@end group
 
 @group
 type:
@@ -1866,9 +1866,7 @@ here is the definition we will use:
 
 @comment file: rpcalc.y
 @example
-@group
 #include <stdio.h>
-@end group
 
 @group
 /* Called by yyparse on error.  */
@@ -2638,9 +2636,7 @@ operators in @code{yylex}.
 
 @comment file: mfcalc.y: 3
 @example
-@group
 #include <ctype.h>
-@end group
 
 @group
 int
@@ -3392,9 +3388,7 @@ one of your tokens with a @code{%token} declaration.
 A Bison grammar rule has the following general form:
 
 @example
-@group
 @var{result}: @var{components}@dots{};
-@end group
 @end example
 
 @noindent
@@ -3405,9 +3399,7 @@ are put together by this rule (@pxref{Symbols}).
 For example,
 
 @example
-@group
 exp: exp '+' exp;
-@end group
 @end example
 
 @noindent
@@ -3711,9 +3703,7 @@ difference with tools like Flex, for which @samp{|} stands for either
 following example, the action is triggered only when @samp{b} is found:
 
 @example
-@group
 a-or-b: 'a'|'b'   @{ a_or_b_found = 1; @};
-@end group
 @end example
 
 @cindex default action
@@ -5546,6 +5536,30 @@ More user feedback will help to stabilize it.)
 
 
 
+@c ================================================== api.token.constructor
+@item api.token.constructor
+@findex %define api.token.constructor
+
+@itemize @bullet
+@item Language(s):
+C++
+
+@item Purpose:
+When variant-based semantic values are enabled (@pxref{C++ Variants}),
+request that symbols be handled as a whole (type, value, and possibly
+location) in the scanner.  @xref{Complete Symbols}, for details.
+
+@item Accepted Values:
+Boolean.
+
+@item Default Value:
+@code{false}
+@item History:
+introduced in Bison 2.8
+@end itemize
+@c api.token.constructor
+
+
 @c ================================================== api.token.prefix
 @item api.token.prefix
 @findex %define api.token.prefix
@@ -5584,28 +5598,6 @@ empty
 introduced in Bison 2.8
 @end itemize
 @c api.token.prefix
-
-
-@c ================================================== lex_symbol
-@item lex_symbol
-@findex %define lex_symbol
-
-@itemize @bullet
-@item Language(s):
-C++
-
-@item Purpose:
-When variant-based semantic values are enabled (@pxref{C++ Variants}),
-request that symbols be handled as a whole (type, value, and possibly
-location) in the scanner.  @xref{Complete Symbols}, for details.
-
-@item Accepted Values:
-Boolean.
-
-@item Default Value:
-@code{false}
-@end itemize
-@c lex_symbol
 
 
 @c ================================================== lr.default-reduction
@@ -6871,7 +6863,7 @@ expr:
 term:
   '(' expr ')'
 | term '!'
-| NUMBER
+| "number"
 ;
 @end group
 @end example
@@ -6910,20 +6902,20 @@ statements, with a pair of rules like this:
 @example
 @group
 if_stmt:
-  IF expr THEN stmt
-| IF expr THEN stmt ELSE stmt
+  "if" expr "then" stmt
+| "if" expr "then" stmt "else" stmt
 ;
 @end group
 @end example
 
 @noindent
-Here we assume that @code{IF}, @code{THEN} and @code{ELSE} are
-terminal symbols for specific keyword tokens.
+Here @code{"if"}, @code{"then"} and @code{"else"} are terminal symbols for
+specific keyword tokens.
 
-When the @code{ELSE} token is read and becomes the lookahead token, the
+When the @code{"else"} token is read and becomes the lookahead token, the
 contents of the stack (assuming the input is valid) are just right for
 reduction by the first rule.  But it is also legitimate to shift the
-@code{ELSE}, because that would lead to eventual reduction by the second
+@code{"else"}, because that would lead to eventual reduction by the second
 rule.
 
 This situation, where either a shift or a reduction would be valid, is
@@ -6932,14 +6924,14 @@ these conflicts by choosing to shift, unless otherwise directed by
 operator precedence declarations.  To see the reason for this, let's
 contrast it with the other alternative.
 
-Since the parser prefers to shift the @code{ELSE}, the result is to attach
+Since the parser prefers to shift the @code{"else"}, the result is to attach
 the else-clause to the innermost if-statement, making these two inputs
 equivalent:
 
 @example
-if x then if y then win (); else lose;
+if x then if y then win; else lose;
 
-if x then do; if y then win (); else lose; end;
+if x then do; if y then win; else lose; end;
 @end example
 
 But if the parser chose to reduce when possible rather than shift, the
@@ -6947,9 +6939,9 @@ result would be to attach the else-clause to the outermost if-statement,
 making these two inputs equivalent:
 
 @example
-if x then if y then win (); else lose;
+if x then if y then win; else lose;
 
-if x then do; if y then win (); end; else lose;
+if x then do; if y then win; end; else lose;
 @end example
 
 The conflict exists because the grammar as written is ambiguous: either
@@ -6962,11 +6954,16 @@ This particular ambiguity was first encountered in the specifications of
 Algol 60 and is called the ``dangling @code{else}'' ambiguity.
 
 To avoid warnings from Bison about predictable, legitimate shift/reduce
-conflicts, use the @code{%expect @var{n}} declaration.
+conflicts, you can use the @code{%expect @var{n}} declaration.
 There will be no warning as long as the number of shift/reduce conflicts
 is exactly @var{n}, and Bison will report an error if there is a
 different number.
-@xref{Expect Decl, ,Suppressing Conflict Warnings}.
+@xref{Expect Decl, ,Suppressing Conflict Warnings}.  However, we don't
+recommend the use of @code{%expect} (except @samp{%expect 0}!), as an equal
+number of conflicts does not mean that they are the @emph{same}.  When
+possible, you should rather use precedence directives to @emph{fix} the
+conflicts explicitly (@pxref{Non Operators,, Using Precedence For Non
+Operators}).
 
 The definition of @code{if_stmt} above is solely to blame for the
 conflict, but the conflict does not actually appear without additional
@@ -6974,10 +6971,7 @@ rules.  Here is a complete Bison grammar file that actually manifests
 the conflict:
 
 @example
-@group
-%token IF THEN ELSE variable
 %%
-@end group
 @group
 stmt:
   expr
@@ -6987,13 +6981,13 @@ stmt:
 
 @group
 if_stmt:
-  IF expr THEN stmt
-| IF expr THEN stmt ELSE stmt
+  "if" expr "then" stmt
+| "if" expr "then" stmt "else" stmt
 ;
 @end group
 
 expr:
-  variable
+  "identifier"
 ;
 @end example
 
@@ -7013,6 +7007,7 @@ shift and when to reduce.
 * Precedence Only::   How to specify precedence only.
 * Precedence Examples::  How these features are used in the previous example.
 * How Precedence::    How they work.
+* Non Operators::     Using precedence for general conflicts.
 @end menu
 
 @node Why Precedence
@@ -7151,15 +7146,10 @@ would declare them in groups of equal precedence.  For example, @code{'+'} is
 declared with @code{'-'}:
 
 @example
-%left '<' '>' '=' NE LE GE
+%left '<' '>' '=' "!=" "<=" ">="
 %left '+' '-'
 %left '*' '/'
 @end example
-
-@noindent
-(Here @code{NE} and so on stand for the operators for ``not equal''
-and so on.  We assume that these tokens are more than one character long
-and therefore are represented by names, not character literals.)
 
 @node How Precedence
 @subsection How Precedence Works
@@ -7182,6 +7172,44 @@ resolved.
 
 Not all rules and not all tokens have precedence.  If either the rule or
 the lookahead token has no precedence, then the default is to shift.
+
+@node Non Operators
+@subsection Using Precedence For Non Operators
+
+Using properly precedence and associativity directives can help fixing
+shift/reduce conflicts that do not involve arithmetics-like operators.  For
+instance, the ``dangling @code{else}'' problem (@pxref{Shift/Reduce, ,
+Shift/Reduce Conflicts}) can be solved elegantly in two different ways.
+
+In the present case, the conflict is between the token @code{"else"} willing
+to be shifted, and the rule @samp{if_stmt: "if" expr "then" stmt}, asking
+for reduction.  By default, the precedence of a rule is that of its last
+token, here @code{"then"}, so the conflict will be solved appropriately
+by giving @code{"else"} a precedence higher than that of @code{"then"}, for
+instance as follows:
+
+@example
+@group
+%precedence "then"
+%precedence "else"
+@end group
+@end example
+
+Alternatively, you may give both tokens the same precedence, in which case
+associativity is used to solve the conflict.  To preserve the shift action,
+use right associativity:
+
+@example
+%right "then" "else"
+@end example
+
+Neither solution is perfect however.  Since Bison does not provide, so far,
+``scoped'' precedence, both force you to declare the precedence
+of these keywords with respect to the other operators your grammar.
+Therefore, instead of being warned about new conflicts you would be unaware
+of (e.g., a shift/reduce conflict due to @samp{if test then 1 else 2 + 3}
+being ambiguous: @samp{if test then 1 else (2 + 3)} or @samp{(if test then 1
+else 2) + 3}?), the conflict will be already ``fixed''.
 
 @node Contextual Precedence
 @section Context-Dependent Precedence
@@ -7343,30 +7371,38 @@ reduce/reduce conflict must be studied and usually eliminated.  Here is the
 proper way to define @code{sequence}:
 
 @example
+@group
 sequence:
   /* empty */    @{ printf ("empty sequence\n"); @}
 | sequence word  @{ printf ("added word %s\n", $2); @}
 ;
+@end group
 @end example
 
 Here is another common error that yields a reduce/reduce conflict:
 
 @example
+@group
 sequence:
   /* empty */
 | sequence words
 | sequence redirects
 ;
+@end group
 
+@group
 words:
   /* empty */
 | words word
 ;
+@end group
 
+@group
 redirects:
   /* empty */
 | redirects redirect
 ;
+@end group
 @end example
 
 @noindent
@@ -7419,6 +7455,58 @@ redirects:
 @end group
 @end example
 
+Yet this proposal introduces another kind of ambiguity!  The input
+@samp{word word} can be parsed as a single @code{words} composed of two
+@samp{word}s, or as two one-@code{word} @code{words} (and likewise for
+@code{redirect}/@code{redirects}).  However this ambiguity is now a
+shift/reduce conflict, and therefore it can now be addressed with precedence
+directives.
+
+To simplify the matter, we will proceed with @code{word} and @code{redirect}
+being tokens: @code{"word"} and @code{"redirect"}.
+
+To prefer the longest @code{words}, the conflict between the token
+@code{"word"} and the rule @samp{sequence: sequence words} must be resolved
+as a shift.  To this end, we use the same techniques as exposed above, see
+@ref{Non Operators,, Using Precedence For Non Operators}.  One solution
+relies on precedences: use @code{%prec} to give a lower precedence to the
+rule:
+
+@example
+%precedence "word"
+%precedence "sequence"
+%%
+@group
+sequence:
+  /* empty */
+| sequence word      %prec "sequence"
+| sequence redirect  %prec "sequence"
+;
+@end group
+
+@group
+words:
+  word
+| words "word"
+;
+@end group
+@end example
+
+Another solution relies on associativity: provide both the token and the
+rule with the same precedence, but make them right-associative:
+
+@example
+%right "word" "redirect"
+%%
+@group
+sequence:
+  /* empty */
+| sequence word      %prec "word"
+| sequence redirect  %prec "redirect"
+;
+@end group
+@end example
+
 @node Mysterious Conflicts
 @section Mysterious Conflicts
 @cindex Mysterious Conflicts
@@ -7428,8 +7516,6 @@ Here is an example:
 
 @example
 @group
-%token ID
-
 %%
 def: param_spec return_spec ',';
 param_spec:
@@ -7437,17 +7523,18 @@ param_spec:
 | name_list ':' type
 ;
 @end group
+
 @group
 return_spec:
   type
 | name ':' type
 ;
 @end group
+
+type: "id";
+
 @group
-type: ID;
-@end group
-@group
-name: ID;
+name: "id";
 name_list:
   name
 | name ',' name_list
@@ -7455,16 +7542,16 @@ name_list:
 @end group
 @end example
 
-It would seem that this grammar can be parsed with only a single token
-of lookahead: when a @code{param_spec} is being read, an @code{ID} is
-a @code{name} if a comma or colon follows, or a @code{type} if another
-@code{ID} follows.  In other words, this grammar is LR(1).
+It would seem that this grammar can be parsed with only a single token of
+lookahead: when a @code{param_spec} is being read, an @code{"id"} is a
+@code{name} if a comma or colon follows, or a @code{type} if another
+@code{"id"} follows.  In other words, this grammar is LR(1).
 
 @cindex LR
 @cindex LALR
 However, for historical reasons, Bison cannot by default handle all
 LR(1) grammars.
-In this grammar, two contexts, that after an @code{ID} at the beginning
+In this grammar, two contexts, that after an @code{"id"} at the beginning
 of a @code{param_spec} and likewise at the beginning of a
 @code{return_spec}, are similar enough that Bison assumes they are the
 same.
@@ -7495,41 +7582,43 @@ distinct.  In the above example, adding one rule to
 
 @example
 @group
-%token BOGUS
-@dots{}
-%%
 @dots{}
 return_spec:
   type
 | name ':' type
-| ID BOGUS       /* This rule is never used.  */
+| "id" "bogus"       /* This rule is never used.  */
 ;
 @end group
 @end example
 
 This corrects the problem because it introduces the possibility of an
-additional active rule in the context after the @code{ID} at the beginning of
+additional active rule in the context after the @code{"id"} at the beginning of
 @code{return_spec}.  This rule is not active in the corresponding context
 in a @code{param_spec}, so the two contexts receive distinct parser states.
-As long as the token @code{BOGUS} is never generated by @code{yylex},
+As long as the token @code{"bogus"} is never generated by @code{yylex},
 the added rule cannot alter the way actual input is parsed.
 
 In this particular example, there is another way to solve the problem:
-rewrite the rule for @code{return_spec} to use @code{ID} directly
+rewrite the rule for @code{return_spec} to use @code{"id"} directly
 instead of via @code{name}.  This also causes the two confusing
 contexts to have different sets of active rules, because the one for
 @code{return_spec} activates the altered rule for @code{return_spec}
 rather than the one for @code{name}.
 
 @example
+@group
 param_spec:
   type
 | name_list ':' type
 ;
+@end group
+
+@group
 return_spec:
   type
-| ID ':' type
+| "id" ':' type
 ;
+@end group
 @end example
 
 For a more detailed exposition of LALR(1) parsers and parser
@@ -7634,7 +7723,8 @@ There are at least two scenarios where LALR can be worthwhile:
 
 @cindex GLR with LALR
 When employing GLR parsers (@pxref{GLR Parsers}), if you do not resolve any
-conflicts statically (for example, with @code{%left} or @code{%prec}), then
+conflicts statically (for example, with @code{%left} or @code{%precedence}),
+then
 the parser explores all potential parses of any given input.  In this case,
 the choice of parser table construction algorithm is guaranteed not to alter
 the language accepted by the parser.  LALR parser tables are the smallest
@@ -8422,6 +8512,8 @@ automaton, and how to enable and understand the parser run-time traces.
 
 @menu
 * Understanding::     Understanding the structure of your parser.
+* Graphviz::          Getting a visual representation of the parser.
+* Xml::               Getting a markup representation of the parser.
 * Tracing::           Tracing the execution of your parser.
 @end menu
 
@@ -8838,6 +8930,165 @@ precedence of @samp{/} with respect to @samp{+}, @samp{-}, and
 @samp{*}, but also because the
 associativity of @samp{/} is not specified.
 
+Note that Bison may also produce an HTML version of this output, via an XML
+file and XSLT processing (@pxref{Xml}).
+
+@c ================================================= Graphical Representation
+
+@node Graphviz
+@section Visualizing Your Parser
+@cindex dot
+
+As another means to gain better understanding of the shift/reduce
+automaton corresponding to the Bison parser, a DOT file can be generated. Note
+that debugging a real grammar with this is tedious at best, and impractical
+most of the times, because the generated files are huge (the generation of
+a PDF or PNG file from it will take very long, and more often than not it will
+fail due to memory exhaustion). This option was rather designed for beginners,
+to help them understand LR parsers.
+
+This file is generated when the @option{--graph} option is specified
+(@pxref{Invocation, , Invoking Bison}).  Its name is made by removing
+@samp{.tab.c} or @samp{.c} from the parser implementation file name, and
+adding @samp{.dot} instead.  If the grammar file is @file{foo.y}, the
+Graphviz output file is called @file{foo.dot}.
+
+The following grammar file, @file{rr.y}, will be used in the sequel:
+
+@example
+%%
+@group
+exp: a ";" | b ".";
+a: "0";
+b: "0";
+@end group
+@end example
+
+The graphical output is very similar to the textual one, and as such it is
+easier understood by making direct comparisons between them. See
+@ref{Debugging, , Debugging Your Parser} for a detailled analysis of the
+textual report.
+
+@subheading Graphical Representation of States
+
+The items (pointed rules) for each state are grouped together in graph nodes.
+Their numbering is the same as in the verbose file. See the following points,
+about transitions, for examples
+
+When invoked with @option{--report=lookaheads}, the lookahead tokens, when
+needed, are shown next to the relevant rule between square brackets as a
+comma separated list. This is the case in the figure for the representation of
+reductions, below.
+
+@sp 1
+
+The transitions are represented as directed edges between the current and
+the target states.
+
+@subheading Graphical Representation of Shifts
+
+Shifts are shown as solid arrows, labelled with the lookahead token for that
+shift. The following describes a reduction in the @file{rr.output} file:
+
+@example
+@group
+state 3
+
+    1 exp: a . ";"
+
+    ";"  shift, and go to state 6
+@end group
+@end example
+
+A Graphviz rendering of this portion of the graph could be:
+
+@center @image{figs/example-shift, 100pt}
+
+@subheading Graphical Representation of Reductions
+
+Reductions are shown as solid arrows, leading to a diamond-shaped node
+bearing the number of the reduction rule. The arrow is labelled with the
+appropriate comma separated lookahead tokens. If the reduction is the default
+action for the given state, there is no such label.
+
+This is how reductions are represented in the verbose file @file{rr.output}:
+@example
+state 1
+
+    3 a: "0" .  [";"]
+    4 b: "0" .  ["."]
+
+    "."       reduce using rule 4 (b)
+    $default  reduce using rule 3 (a)
+@end example
+
+A Graphviz rendering of this portion of the graph could be:
+
+@center @image{figs/example-reduce, 120pt}
+
+When unresolved conflicts are present, because in deterministic parsing
+a single decision can be made, Bison can arbitrarily choose to disable a
+reduction, see @ref{Shift/Reduce, , Shift/Reduce Conflicts}.  Discarded actions
+are distinguished by a red filling color on these nodes, just like how they are
+reported between square brackets in the verbose file.
+
+The reduction corresponding to the rule number 0 is the acceptation state. It
+is shown as a blue diamond, labelled "Acc".
+
+@subheading Graphical representation of go tos
+
+The @samp{go to} jump transitions are represented as dotted lines bearing
+the name of the rule being jumped to.
+
+Note that a DOT file may also be produced via an XML file and XSLT
+processing (@pxref{Xml}).
+
+@c ================================================= XML
+
+@node Xml
+@section Visualizing your parser in multiple formats
+@cindex xml
+
+Bison supports two major report formats: textual output
+(@pxref{Understanding}) when invoked with option @option{--verbose}, and DOT
+(@pxref{Graphviz}) when invoked with option @option{--graph}. However,
+another alternative is to output an XML file that may then be, with
+@command{xsltproc}, rendered as either a raw text format equivalent to the
+verbose file, or as an HTML version of the same file, with clickable
+transitions, or even as a DOT. The @file{.output} and DOT files obtained via
+XSLT have no difference whatsoever with those obtained by invoking
+@command{bison} with options @option{--verbose} or @option{--graph}.
+
+The textual file is generated when the options @option{-x} or
+@option{--xml[=FILE]} are specified, see @ref{Invocation,,Invoking Bison}.
+If not specified, its name is made by removing @samp{.tab.c} or @samp{.c}
+from the parser implementation file name, and adding @samp{.xml} instead.
+For instance, if the grammar file is @file{foo.y}, the default XML output
+file is @file{foo.xml}.
+
+Bison ships with a @file{data/xslt} directory, containing XSL Transformation
+files to apply to the XML file. Their names are non-ambiguous:
+
+@table @file
+@item xml2dot.xsl
+Used to output a copy of the DOT visualization of the automaton.
+@item xml2text.xsl
+Used to output a copy of the .output file.
+@item xml2xhtml.xsl
+Used to output an xhtml enhancement of the .output file.
+@end table
+
+Sample usage (requires @code{xsltproc}):
+@example
+$ bison -x input.y
+@group
+$ bison --print-datadir
+/usr/local/share/bison
+@end group
+$ xsltproc /usr/local/share/bison/xslt/xml2xhtml.xsl input.xml > input.html
+@end example
+
+@c ================================================= Tracing
 
 @node Tracing
 @section Tracing Your Parser
@@ -10084,7 +10335,8 @@ or
 @node Complete Symbols
 @subsubsection Complete Symbols
 
-If you specified both @code{%define variant} and @code{%define lex_symbol},
+If you specified both @code{%define variant} and
+@code{%define api.token.constructor},
 the @code{parser} class also defines the class @code{parser::symbol_type}
 which defines a @emph{complete} symbol, aggregating its type (i.e., the
 traditional value returned by @code{yylex}), its semantic value (i.e., the
@@ -10346,18 +10598,18 @@ the grammar for.
 @end example
 
 @noindent
+@findex %define api.token.constructor
 @findex %define variant
-@findex %define lex_symbol
 This example will use genuine C++ objects as semantic values, therefore, we
 require the variant-based interface.  To make sure we properly use it, we
 enable assertions.  To fully benefit from type-safety and more natural
-definition of ``symbol'', we enable @code{lex_symbol}.
+definition of ``symbol'', we enable @code{api.token.constructor}.
 
 @comment file: calc++-parser.yy
 @example
-%define variant
+%define api.token.constructor
 %define parse.assert
-%define lex_symbol
+%define variant
 @end example
 
 @noindent
@@ -12580,9 +12832,12 @@ London, Department of Computer Science, TR-00-12 (December 2000).
 @c LocalWords: subdirectory Solaris nonassociativity perror schemas Malloy ints
 @c LocalWords: Scannerless ispell american ChangeLog smallexample CSTYPE CLTYPE
 @c LocalWords: clval CDEBUG cdebug deftypeopx yyterminate LocationType
+@c LocalWords: parsers parser's
+@c LocalWords: associativity subclasses precedences unresolvable runnable
+@c LocalWords: allocators subunit initializations unreferenced untyped
+@c LocalWords: errorVerbose subtype subtypes
 
 @c Local Variables:
 @c ispell-dictionary: "american"
 @c fill-column: 76
 @c End:
-@c  LocalWords:  errorVerbose

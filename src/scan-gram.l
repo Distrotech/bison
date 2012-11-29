@@ -17,7 +17,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-%option debug nodefault noinput nounput noyywrap never-interactive
+%option debug nodefault noinput noyywrap never-interactive
 %option prefix="gram_" outfile="lex.yy.c"
 
 %{
@@ -31,6 +31,7 @@
 
 #include <src/complain.h>
 #include <src/files.h>
+#include <src/getargs.h>
 #include <src/gram.h>
 #include <quotearg.h>
 #include <src/reader.h>
@@ -71,6 +72,17 @@ static size_t no_cr_read (FILE *, char *, size_t);
   do {                                                          \
     scanner_cursor.column -= mbsnwidth (yytext, yyleng, 0);     \
     yyless (0);                                                 \
+  } while (0)
+
+#define DEPRECATED(Msg)                                         \
+  do {                                                          \
+    size_t i;                                                   \
+    complain (loc, Wdeprecated,                                 \
+              _("deprecated directive: %s, use %s"),            \
+              quote (yytext), quote_n (1, Msg));                \
+    scanner_cursor.column -= mbsnwidth (Msg, strlen (Msg), 0);  \
+    for (i = strlen (Msg); i != 0; --i)                         \
+      unput (Msg[i - 1]);                                       \
   } while (0)
 
 /* A string representing the most recently saved token.  */
@@ -119,8 +131,8 @@ static void unexpected_newline (boundary, char const *);
 %x SC_BRACKETED_ID SC_RETURN_BRACKETED_ID
 
 letter    [.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_]
+notletter [^.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_]{-}[%\{]
 id        {letter}({letter}|[-0-9])*
-directive %{id}
 int       [0-9]+
 
 /* POSIX says that a tag must be both an id and a C union member, but
@@ -133,6 +145,10 @@ tag      [^\0<>]+
 /* Zero or more instances of backslash-newline.  Following GCC, allow
    white space between the backslash and the newline.  */
 splice   (\\[ \f\t\v]*\n)*
+
+/* An equal sign, with optional leading whitespaces. This is used in some
+   deprecated constructs. */
+eqopt    ([[:space:]]*=)?
 
 %%
 %{
@@ -168,7 +184,7 @@ splice   (\\[ \f\t\v]*\n)*
      complain (loc, Wother, _("stray ',' treated as white space"));
   }
   [ \f\n\t\v]  |
-  "//".*       ;
+  "//".*       continue;
   "/*" {
     token_start = loc->start;
     context_state = YY_START;
@@ -198,16 +214,16 @@ splice   (\\[ \f\t\v]*\n)*
   "%binary"                         return PERCENT_NONASSOC;
   "%code"                           return PERCENT_CODE;
   "%debug"                          RETURN_PERCENT_FLAG("parse.trace");
-  "%default"[-_]"prec"              return PERCENT_DEFAULT_PREC;
+  "%default-prec"                   return PERCENT_DEFAULT_PREC;
   "%define"                         return PERCENT_DEFINE;
   "%defines"                        return PERCENT_DEFINES;
   "%destructor"                     return PERCENT_DESTRUCTOR;
   "%dprec"                          return PERCENT_DPREC;
-  "%error"[-_]"verbose"             return PERCENT_ERROR_VERBOSE;
+  "%error-verbose"                  return PERCENT_ERROR_VERBOSE;
   "%expect"                         return PERCENT_EXPECT;
-  "%expect"[-_]"rr"                 return PERCENT_EXPECT_RR;
+  "%expect-rr"                      return PERCENT_EXPECT_RR;
   "%file-prefix"                    return PERCENT_FILE_PREFIX;
-  "%fixed"[-_]"output"[-_]"files"   return PERCENT_YACC;
+  "%fixed-output-files"             return PERCENT_YACC;
   "%initial-action"                 return PERCENT_INITIAL_ACTION;
   "%glr-parser"                     return PERCENT_GLR_PARSER;
   "%language"                       return PERCENT_LANGUAGE;
@@ -215,9 +231,9 @@ splice   (\\[ \f\t\v]*\n)*
   "%lex-param"                      RETURN_PERCENT_PARAM(lex);
   "%locations"                      RETURN_PERCENT_FLAG("locations");
   "%merge"                          return PERCENT_MERGE;
-  "%name"[-_]"prefix"               return PERCENT_NAME_PREFIX;
-  "%no"[-_]"default"[-_]"prec"      return PERCENT_NO_DEFAULT_PREC;
-  "%no"[-_]"lines"                  return PERCENT_NO_LINES;
+  "%name-prefix"                    return PERCENT_NAME_PREFIX;
+  "%no-default-prec"                return PERCENT_NO_DEFAULT_PREC;
+  "%no-lines"                       return PERCENT_NO_LINES;
   "%nonassoc"                       return PERCENT_NONASSOC;
   "%nondeterministic-parser"        return PERCENT_NONDETERMINISTIC_PARSER;
   "%nterm"                          return PERCENT_NTERM;
@@ -227,20 +243,33 @@ splice   (\\[ \f\t\v]*\n)*
   "%prec"                           return PERCENT_PREC;
   "%precedence"                     return PERCENT_PRECEDENCE;
   "%printer"                        return PERCENT_PRINTER;
-  "%pure"[-_]"parser"               RETURN_PERCENT_FLAG("api.pure");
+  "%pure-parser"                    RETURN_PERCENT_FLAG("api.pure");
   "%require"                        return PERCENT_REQUIRE;
   "%right"                          return PERCENT_RIGHT;
   "%skeleton"                       return PERCENT_SKELETON;
   "%start"                          return PERCENT_START;
   "%term"                           return PERCENT_TOKEN;
   "%token"                          return PERCENT_TOKEN;
-  "%token"[-_]"table"               return PERCENT_TOKEN_TABLE;
+  "%token-table"                    return PERCENT_TOKEN_TABLE;
   "%type"                           return PERCENT_TYPE;
   "%union"                          return PERCENT_UNION;
   "%verbose"                        return PERCENT_VERBOSE;
   "%yacc"                           return PERCENT_YACC;
 
-  {directive} {
+  /* deprecated */
+  "%default"[-_]"prec"              DEPRECATED("%default-prec");
+  "%error"[-_]"verbose"             DEPRECATED("%define parse.error verbose");
+  "%expect"[-_]"rr"                 DEPRECATED("%expect-rr");
+  "%file-prefix"{eqopt}             DEPRECATED("%file-prefix");
+  "%fixed"[-_]"output"[-_]"files"   DEPRECATED("%fixed-output-files");
+  "%name"[-_]"prefix"{eqopt}        DEPRECATED("%name-prefix");
+  "%no"[-_]"default"[-_]"prec"      DEPRECATED("%no-default-prec");
+  "%no"[-_]"lines"                  DEPRECATED("%no-lines");
+  "%output"{eqopt}                  DEPRECATED("%output");
+  "%pure"[-_]"parser"               DEPRECATED("%pure-parser");
+  "%token"[-_]"table"               DEPRECATED("%token-table");
+
+  "%"{id}|"%"{notletter}([[:graph:]])+ {
     complain (loc, complaint, _("invalid directive: %s"), quote (yytext));
   }
 
@@ -324,8 +353,10 @@ splice   (\\[ \f\t\v]*\n)*
     BEGIN SC_BRACKETED_ID;
   }
 
-  . {
-    complain (loc, complaint, _("invalid character: %s"), quote (yytext));
+  [^\[%A-Za-z0-9_<>{}\"\'*;|=/, \f\n\t\v]+|. {
+    complain (loc, complaint, "%s: %s",
+              ngettext ("invalid character", "invalid characters", yyleng),
+              quote_mem (yytext, yyleng));
   }
 
   <<EOF>> {
@@ -419,10 +450,14 @@ splice   (\\[ \f\t\v]*\n)*
     else
       complain (loc, complaint, _("an identifier expected"));
   }
-  . {
-    complain (loc, complaint, _("invalid character in bracketed name: %s"),
-                 quote (yytext));
+
+  [^\].A-Za-z0-9_/ \f\n\t\v]+|. {
+    complain (loc, complaint, "%s: %s",
+              ngettext ("invalid character in bracketed name",
+                        "invalid characters in bracketed name", yyleng),
+              quote_mem (yytext, yyleng));
   }
+
   <<EOF>> {
     BEGIN bracketed_id_context_state;
     unexpected_eof (bracketed_id_start, "]");
@@ -449,7 +484,7 @@ splice   (\\[ \f\t\v]*\n)*
 <SC_YACC_COMMENT>
 {
   "*/"     BEGIN context_state;
-  .|\n     ;
+  .|\n     continue;
   <<EOF>>  unexpected_eof (token_start, "*/"); BEGIN context_state;
 }
 
