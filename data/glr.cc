@@ -60,15 +60,6 @@ m4_define([b4_parser_class_name],
 # Save the parse parameters.
 m4_define([b4_parse_param_orig], m4_defn([b4_parse_param]))
 
-# b4_lex_wrapper_param
-# --------------------
-# Accumulate in b4_lex_param all the yylex arguments.
-# Yes, this is quite ugly...
-m4_define([b4_lex_wrapper_param],
-[b4_pure_if([[[[YYSTYPE *yylvalp]], [[yylvalp]]][]dnl
-b4_locations_if([, [[YYLTYPE *yyllocp], [yyllocp]]])])dnl
-m4_ifdef([b4_lex_param], [, ]b4_lex_param)])
-
 
 
 # b4_yy_symbol_print_define
@@ -118,13 +109,8 @@ m4_defn([b4_initial_action])]))])])[
 
 ]b4_token_ctor_if([
 // A wrapper around a symbol_type returning yylex, to an old style yylex.
-b4_function_declare([yylex_wrapper],
-                        [static int],
-                        b4_lex_wrapper_param)
-# define YYLEX ]b4_function_call([yylex_wrapper], [int],
-[[[YYSTYPE*]], [[&yylval]]][]dnl
-b4_locations_if([, [[YYLTYPE*], [&yylloc]]])dnl
-m4_ifdef([b4_lex_param], [, ]b4_lex_param))[
+b4_function_declare([yylex_wrapper], [static int], b4_lex_param)
+# define YYLEX ]b4_function_call([yylex_wrapper], [int], b4_lex_param)[
 ])
 ])
 
@@ -151,14 +137,12 @@ m4_append([b4_epilogue],
 // A wrapper around a symbol_type returning yylex, to an old style yylex.
 ]b4_function_define([yylex_wrapper],
                     [static int],
-                    b4_lex_wrapper_param)[
+                    b4_lex_param)[
 {
   ]b4_namespace_ref::b4_parser_class_name[::symbol_type s = ]dnl
-b4_function_call([yylex],
-                   [],
-                   m4_ifdef([b4_lex_param], b4_lex_param))[;
+b4_function_call([yylex], [], b4_lex_param)[;
   ]b4_symbol_variant([[s.type]], [[(*yylvalp)]],
-                   [build], [s.value])[
+                     [build], [s.value])[
   std::swap (*yyllocp, s.location);
   return s.token ();
 }]])[
