@@ -60,6 +60,8 @@ m4_define([b4_parser_class_name],
 # Save the parse parameters.
 m4_define([b4_parse_param_orig], m4_defn([b4_parse_param]))
 
+# b4_parse_param_wrap
+# -------------------
 # New ones.
 m4_ifset([b4_parse_param],
 [m4_define([b4_parse_param_wrap],
@@ -262,7 +264,8 @@ b4_namespace_close
 # Declaration that might either go into the header (if --defines)
 # or open coded in the parser body.
 m4_define([b4_shared_declarations],
-[b4_percent_code_get([[requires]])[
+[m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
+b4_percent_code_get([[requires]])[
 
 #include <stdexcept>
 ]b4_parse_assert_if([#include <cassert>])[
@@ -362,11 +365,10 @@ b4_percent_define_flag_if([[global_tokens_and_yystype]],
 #endif
 
 ]b4_namespace_close
-m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_wrap]))dnl
-b4_function_declare(b4_prefix[parse], [int], b4_parse_param)
+b4_function_declare(b4_prefix[parse], [int], b4_parse_param_wrap)
+b4_percent_code_get([[provides]])
 m4_popdef([b4_parse_param])dnl
-b4_percent_code_get([[provides]])[
-]])
+])
 
 b4_defines_if(
 [b4_output_begin([b4_spec_defines_file])
