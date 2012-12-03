@@ -17,6 +17,7 @@
 /basename.c
 /binary-io.c
 /binary-io.h
+/bitrotate.c
 /bitrotate.h
 /c++defs.h
 /c-ctype.c
@@ -108,6 +109,7 @@
 /localcharset.c
 /localcharset.h
 /malloc.c
+/math.c
 /math.h
 /math.in.h
 /mbchar.c
@@ -159,6 +161,7 @@
 /ref-del.sin
 /sched.h
 /sched.in.h
+/sig-handler.c
 /sig-handler.h
 /sigaction.c
 /signal.h
@@ -198,6 +201,7 @@
 /stdio-impl.h
 /stdio-safer.h
 /stdio-write.c
+/stdio.c
 /stdio.h
 /stdio.in.h
 /stdlib.h
@@ -236,6 +240,7 @@
 /time.in.h
 /unistd--.h
 /unistd-safer.h
+/unistd.c
 /unistd.h
 /unistd.in.h
 /unitypes.h
@@ -259,6 +264,7 @@
 /warn-on-use.h
 /wchar.h
 /wchar.in.h
+/wctype-h.c
 /wctype.h
 /wctype.in.h
 /wcwidth.c

@@ -271,8 +271,7 @@ m4_define([b4_location_define],
 # We do want M4 expansion after # for CPP macros.
 m4_changecom()
 b4_defines_if([
-m4_divert_push(0)dnl
-@output(b4_dir_prefix[]position.hh@)@
+b4_output_begin([b4_dir_prefix[]position.hh])
 b4_copyright([Positions for Bison parsers in C++])[
 
 /**
@@ -292,7 +291,10 @@ b4_copyright([Positions for Bison parsers in C++])[
 ]b4_position_define[
 ]b4_namespace_close[
 ]b4_cpp_guard_close([b4_dir_prefix[]position.hh])
-@output(b4_dir_prefix[]location.hh@)@
+b4_output_end()
+
+
+b4_output_begin([b4_dir_prefix[]location.hh])
 b4_copyright([Locations for Bison parsers in C++])[
 
 /**
@@ -308,7 +310,8 @@ b4_copyright([Locations for Bison parsers in C++])[
 ]b4_location_define[
 ]b4_namespace_close[
 ]b4_cpp_guard_close([b4_dir_prefix[]location.hh])
-m4_divert_pop(0)
-])# b4_defines_if
-m4_popdef([b4_copyright_years])dnl
-m4_changecom([#])
+b4_output_end()
+])
+
+
+m4_popdef([b4_copyright_years])

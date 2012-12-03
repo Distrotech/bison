@@ -369,9 +369,7 @@ b4_percent_code_get([[provides]])[
 ]])
 
 b4_defines_if(
-[m4_changecom()dnl
-m4_divert_push(0)dnl
-@output(b4_spec_defines_file@)@
+[b4_output_begin([b4_spec_defines_file])
 b4_copyright([Skeleton interface for Bison GLR parsers in C++],
              [2002-2012])[
 
@@ -380,8 +378,7 @@ b4_copyright([Skeleton interface for Bison GLR parsers in C++],
 ]b4_cpp_guard_open([b4_spec_defines_file])[
 ]b4_shared_declarations[
 ]b4_cpp_guard_close([b4_spec_defines_file])[
-]m4_divert_pop(0)
-m4_changecom([#])])
+]b4_output_end()])
 
 # Let glr.c (and b4_shared_declarations) believe that the user
 # arguments include the parser itself.
