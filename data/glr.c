@@ -2729,3 +2729,4 @@ b4_copyright([Skeleton interface for Bison GLR parsers in C],
 ]b4_cpp_guard_close([b4_spec_defines_file])[
 ]])])dnl
 m4_divert_pop(0)
+m4_changecom([#])
