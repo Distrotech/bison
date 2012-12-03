@@ -60,6 +60,24 @@ m4_define([b4_parser_class_name],
 # Save the parse parameters.
 m4_define([b4_parse_param_orig], m4_defn([b4_parse_param]))
 
+# New ones.
+m4_ifset([b4_parse_param],
+[m4_define([b4_parse_param_wrap],
+           [[b4_namespace_ref::b4_parser_class_name[& yyparser], [[yyparser]]],]
+m4_defn([b4_parse_param]))],
+[m4_define([b4_parse_param_wrap],
+           [[b4_namespace_ref::b4_parser_class_name[& yyparser], [[yyparser]]]])
+])
+
+# b4_lex_wrapper_param
+# --------------------
+# The yylex_wrapper formal arguments.
+# Yes, this is quite ugly...
+m4_define([b4_lex_wrapper_formals],
+[b4_pure_if([[[[YYSTYPE *yylvalp]], [[yylvalp]]][]dnl
+b4_locations_if([, [[YYLTYPE *yyllocp], [yyllocp]]])])dnl
+m4_ifdef([b4_lex_param], [, ]b4_lex_param)])
+
 
 
 # b4_yy_symbol_print_define
@@ -109,8 +127,8 @@ m4_defn([b4_initial_action])]))])])[
 
 ]b4_token_ctor_if([
 // A wrapper around a symbol_type returning yylex, to an old style yylex.
-b4_function_declare([yylex_wrapper], [static int], b4_lex_param)
-# define YYLEX ]b4_function_call([yylex_wrapper], [int], b4_lex_param)[
+b4_function_declare([yylex_wrapper], [static int], b4_lex_formals)
+# define YYLEX ]b4_function_call([yylex_wrapper], [int], b4_lex_formals)[
 ])
 ])
 
@@ -137,10 +155,10 @@ m4_append([b4_epilogue],
 // A wrapper around a symbol_type returning yylex, to an old style yylex.
 ]b4_function_define([yylex_wrapper],
                     [static int],
-                    b4_lex_param)[
+                    b4_lex_formals)[
 {
   ]b4_namespace_ref::b4_parser_class_name[::symbol_type s = ]dnl
-b4_function_call([yylex], [], b4_lex_param)[;
+b4_function_call([yylex], [], m4_unquote(b4_lex_param))[;
   ]b4_symbol_variant([[s.type]], [[(*yylvalp)]],
                      [build], [s.value])[
   std::swap (*yyllocp, s.location);
@@ -244,9 +262,7 @@ b4_namespace_close
 # Declaration that might either go into the header (if --defines)
 # or open coded in the parser body.
 m4_define([b4_shared_declarations],
-[dnl In this section, the parse params are the original parse_params.
-m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
-b4_percent_code_get([[requires]])[
+[b4_percent_code_get([[requires]])[
 
 #include <stdexcept>
 ]b4_parse_assert_if([#include <cassert>])[
@@ -345,10 +361,12 @@ b4_percent_define_flag_if([[global_tokens_and_yystype]],
 # define ]b4_api_PREFIX[LTYPE ]b4_namespace_ref[::]b4_parser_class_name[::location_type
 #endif
 
-]b4_namespace_close[
-]b4_percent_code_get([[provides]])[
-]m4_popdef([b4_parse_param])dnl
-])
+]b4_namespace_close
+m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_wrap]))dnl
+b4_function_declare(b4_prefix[parse], [int], b4_parse_param)
+m4_popdef([b4_parse_param])dnl
+b4_percent_code_get([[provides]])[
+]])
 
 b4_defines_if(
 [m4_changecom()dnl
@@ -367,12 +385,6 @@ m4_changecom[#])])
 
 # Let glr.c (and b4_shared_declarations) believe that the user
 # arguments include the parser itself.
-m4_ifset([b4_parse_param],
-[m4_pushdef([b4_parse_param],
-            [[b4_namespace_ref::b4_parser_class_name[& yyparser], [[yyparser]]],]
-m4_defn([b4_parse_param]))],
-[m4_pushdef([b4_parse_param],
-            [[b4_namespace_ref::b4_parser_class_name[& yyparser], [[yyparser]]]])
-])
+m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_wrap]))
 m4_include(b4_pkgdatadir/[glr.c])
 m4_popdef([b4_parse_param])
