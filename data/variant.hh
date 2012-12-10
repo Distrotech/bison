@@ -79,6 +79,7 @@ m4_map([b4_char_sizeof_], [$@])dnl
 # The needed includes for variants support.
 m4_define([b4_variant_includes],
 [b4_parse_assert_if([[#include <typeinfo>]])[
+#include <cstdlib>  // abort
 #ifndef YYASSERT
 # include <cassert>
 # define YYASSERT assert
