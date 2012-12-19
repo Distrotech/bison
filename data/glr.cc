@@ -70,15 +70,14 @@ m4_defn([b4_parse_param]))],
            [[b4_namespace_ref::b4_parser_class_name[& yyparser], [[yyparser]]]])
 ])
 
-# b4_lex_wrapper_param
-# --------------------
+# b4_lex_wrapper_formals
+# ----------------------
 # The yylex_wrapper formal arguments.
 # Yes, this is quite ugly...
 m4_define([b4_lex_wrapper_formals],
 [b4_pure_if([[[[YYSTYPE *yylvalp]], [[yylvalp]]][]dnl
 b4_locations_if([, [[YYLTYPE *yyllocp], [yyllocp]]])])dnl
 m4_ifdef([b4_lex_param], [, ]b4_lex_param)])
-
 
 
 # b4_yy_symbol_print_define

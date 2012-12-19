@@ -117,7 +117,7 @@ m4_define([b4_variant_define],
       YYASSERT (!tname);
       YYASSERT (sizeof (T) <= S);
       built = true;
-      tname = typeid(T).name();])[
+      tname = typeid (T).name ();])[
       return *new (buffer.raw) T;
     }
 
@@ -130,8 +130,8 @@ m4_define([b4_variant_define],
       YYASSERT (!tname);
       YYASSERT (sizeof (T) <= S);
       built = true;
-      tname = typeid(T).name();])[
-      return *new (buffer.raw) T(t);
+      tname = typeid (T).name ();])[
+      return *new (buffer.raw) T (t);
     }
 
     /// Construct and fill.
@@ -139,10 +139,10 @@ m4_define([b4_variant_define],
     inline
     variant (const T& t)]b4_parse_assert_if([
       : built (true)
-      , tname (typeid(T).name())])[
+      , tname (typeid (T).name ())])[
     {
       YYASSERT (sizeof (T) <= S);
-      new (buffer.raw) T(t);
+      new (buffer.raw) T (t);
     }
 
     /// Accessor to a built \a T.
@@ -151,9 +151,9 @@ m4_define([b4_variant_define],
     as ()
     {]b4_parse_assert_if([
       YYASSERT (built);
-      YYASSERT (tname == typeid(T).name());
+      YYASSERT (tname == typeid (T).name ());
       YYASSERT (sizeof (T) <= S);])[
-      return reinterpret_cast<T&>(buffer.raw);
+      return reinterpret_cast<T&> (buffer.raw);
     }
 
     /// Const accessor to a built \a T (for %printer).
@@ -162,9 +162,9 @@ m4_define([b4_variant_define],
     as () const
     {]b4_parse_assert_if([
       YYASSERT (built);
-      YYASSERT (tname == typeid(T).name());
+      YYASSERT (tname == typeid (T).name ());
       YYASSERT (sizeof (T) <= S);])[
-      return reinterpret_cast<const T&>(buffer.raw);
+      return reinterpret_cast<const T&> (buffer.raw);
     }
 
     /// Swap the content with \a other, of same type.
@@ -195,7 +195,7 @@ m4_define([b4_variant_define],
     inline void
     copy (const variant<S>& other)
     {
-      build<T>(other.as<T>());
+      build<T> (other.as<T> ());
     }
 
     /// Destroy the stored \a T.
@@ -203,7 +203,7 @@ m4_define([b4_variant_define],
     inline void
     destroy ()
     {
-      as<T>().~T();]b4_parse_assert_if([
+      as<T> ().~T ();]b4_parse_assert_if([
       built = false;
       tname = YY_NULL;])[
     }
@@ -212,7 +212,7 @@ m4_define([b4_variant_define],
     //  private:
     self_type& operator=(const self_type&)
     {
-      abort();
+      abort ();
     }
 
   private:
