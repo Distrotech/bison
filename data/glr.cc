@@ -50,8 +50,7 @@ b4_variant_if([m4_define([b4_location_constructors])])
 m4_define([b4_pure_flag],      [1])
 
 m4_include(b4_pkgdatadir/[c++.m4])
-b4_locations_if([b4_percent_define_ifdef([[api.location.type]], [],
-                [m4_include(b4_pkgdatadir/[location.cc])])])
+b4_bison_locations_if([m4_include(b4_pkgdatadir/[location.cc])])
 b4_variant_if([m4_include(b4_pkgdatadir/[variant.hh])])
 
 m4_define([b4_parser_class_name],
@@ -109,10 +108,9 @@ b4_locations_if([,
 ]])[
 
 # Hijack the initial action to initialize the locations.
-]b4_locations_if([b4_percent_define_ifdef([[api.location.type]], [],
-[m4_define([b4_initial_action],
+]b4_bison_locations_if([m4_define([b4_initial_action],
 [yylloc.initialize ();]m4_ifdef([b4_initial_action], [
-m4_defn([b4_initial_action])]))])])[
+m4_defn([b4_initial_action])]))])[
 
 # Hijack the post prologue to insert early definition of YYLLOC_DEFAULT
 # and declaration of yyerror.
@@ -271,17 +269,15 @@ b4_percent_code_get([[requires]])[
 ]b4_parse_assert_if([#include <cassert>])[
 #include <string>
 #include <iostream>]b4_defines_if([
-b4_locations_if([b4_percent_define_ifdef([[api.location.type]], [],
-                                         [[#include "location.hh"]])])])[
+b4_bison_locations_if([[#include "location.hh"]])])[
 
 ]b4_variant_if([b4_variant_includes])[
 ]b4_YYDEBUG_define[
 
 ]b4_namespace_open[
 ]b4_defines_if([],
-[b4_locations_if([b4_percent_define_ifdef([[api.location.type]], [],
-                                          [b4_position_define
-b4_location_define])])])[
+[b4_bison_locations_if([b4_position_define
+b4_location_define])])[
 
 ]b4_variant_if([b4_variant_define])[
 

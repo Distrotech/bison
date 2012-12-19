@@ -311,7 +311,7 @@ b4_percent_code_get[]dnl
 # include <setjmp.h>
 # define YYJMP_BUF jmp_buf
 # define YYSETJMP(Env) setjmp (Env)
-// Pacify clang.
+/* Pacify clang.  */
 # define YYLONGJMP(Env, Val) (longjmp (Env, Val), YYASSERT (0))
 #endif
 
@@ -2149,10 +2149,10 @@ yyreportSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
 #if ! YYERROR_VERBOSE
   yyerror (]b4_lyyerror_args[YY_("syntax error"));
 #else
+  {
   yySymbol yytoken = yychar == YYEMPTY ? YYEMPTY : YYTRANSLATE (yychar);
   size_t yysize0 = yytnamerr (YY_NULL, yytokenName (yytoken));
   size_t yysize = yysize0;
-  size_t yysize1;
   yybool yysize_overflow = yyfalse;
   char* yymsg = YY_NULL;
   enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
@@ -2212,9 +2212,11 @@ yyreportSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
                     break;
                   }
                 yyarg[yycount++] = yytokenName (yyx);
-                yysize1 = yysize + yytnamerr (YY_NULL, yytokenName (yyx));
-                yysize_overflow |= yysize1 < yysize;
-                yysize = yysize1;
+                {
+                  size_t yysz = yysize + yytnamerr (YY_NULL, yytokenName (yyx));
+                  yysize_overflow |= yysz < yysize;
+                  yysize = yysz;
+                }
               }
         }
     }
@@ -2234,9 +2236,11 @@ yyreportSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
 #undef YYCASE_
     }
 
-  yysize1 = yysize + strlen (yyformat);
-  yysize_overflow |= yysize1 < yysize;
-  yysize = yysize1;
+  {
+    size_t yysz = yysize + strlen (yyformat);
+    yysize_overflow |= yysz < yysize;
+    yysize = yysz;
+  }
 
   if (!yysize_overflow)
     yymsg = (char *) YYMALLOC (yysize);
@@ -2266,6 +2270,7 @@ yyreportSyntaxError (yyGLRStack* yystackp]b4_user_formals[)
       yyerror (]b4_lyyerror_args[YY_("syntax error"));
       yyMemoryExhausted (yystackp);
     }
+  }
 #endif /* YYERROR_VERBOSE */
   yynerrs += 1;
 }

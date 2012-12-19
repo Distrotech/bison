@@ -20,7 +20,14 @@ doc_bison_TEXINFOS =                            \
   doc/fdl.texi                                  \
   doc/gpl-3.0.texi
 
-TEXI2DVI = texi2dvi --build-dir=doc/bison.t2d
+# Cannot express dependencies directly on file names because of Automake.
+# Obfuscate with a variable.
+doc_bison = doc/bison
+$(doc_bison).dvi: $(FIGS_DOT:.dot=.eps)
+$(doc_bison).pdf: $(FIGS_DOT:.dot=.pdf)
+$(doc_bison).html: $(FIGS_DOT:.dot=.html)
+
+TEXI2DVI = texi2dvi --build-dir=doc/bison.t2d -I doc
 CLEANDIRS = doc/bison.t2d
 clean-local:
 	rm -rf $(CLEANDIRS)
@@ -117,15 +124,13 @@ nodist_man_MANS = doc/yacc.1
 ## ----------------------------- ##
 
 CLEANDIRS += doc/figs
-FIGS_DOT = doc/figs/example-reduce.dot doc/figs/example-shift.dot
-EXTRA_DIST +=								\
-  $(FIGS_DOT)								\
+FIGS_DOT =                                                      \
+  doc/figs/example.dot                                          \
+  doc/figs/example-reduce.dot doc/figs/example-shift.dot
+EXTRA_DIST +=                                                           \
+  $(FIGS_DOT)                                                           \
   $(FIGS_DOT:.dot=.eps) $(FIGS_DOT:.dot=.pdf) $(FIGS_DOT:.dot=.png)
 SUFFIXES += .dot .eps .pdf .png
-
-doc/bison.dvi:  $(FIGS_DOT:.dot=.eps)
-doc/bison.html: $(FIGS_DOT:.dot=.png)
-doc/bison.pdf:  $(FIGS_DOT:.dot=.pdf)
 
 .dot.eps:
 	$(AM_V_GEN) $(MKDIR_P) `echo "./$@" | sed -e 's,/[^/]*$$,,'`
