@@ -111,9 +111,9 @@ base_number *base = NULL;
    computation equals to BASE_MINIMUM, later mapped to BASE_NINF to
    keep parser tables small.  */
 base_number base_ninf = 0;
-static bitset pos_set = NULL;
-/* Boolean bitset representing an integer set in the range
+/* Bitset representing an integer set in the range
    -nstates..table_size (as an upper bound) */
+static bitset pos_set = NULL;
 
 static unsigned int *conflrow;
 unsigned int *conflict_table;
@@ -786,7 +786,8 @@ pack_table (void)
         place = base[s];
 
       /* Place now belongs to pos set. */
-      bitset_set (pos_set, nstates + place);
+      if (nstates + place >= 0)
+        bitset_set (pos_set, nstates + place);
       base[order[i]] = place;
     }
 
