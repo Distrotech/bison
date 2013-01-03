@@ -80,6 +80,14 @@ b4_locations_if([, [[YYLTYPE *yyllocp], [yyllocp]]])])dnl
 m4_ifdef([b4_lex_param], [, ]b4_lex_param)])
 
 
+# b4_lex
+# ------
+# Call yylex.
+m4_define([b4_lex],
+[b4_function_call([[yylex]b4_token_ctor_if([_wrapper])],
+                  [int], b4_lex_formals)])
+
+
 # b4_yy_symbol_print_define
 # -------------------------
 # Bypass the default implementation to generate the "yy_symbol_print"
