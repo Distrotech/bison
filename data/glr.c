@@ -653,8 +653,8 @@ struct yyGLRState {]b4_variant_if([[
     //  new (&ysemantics.yysval) YYSTYPE;
     ]b4_symbol_variant([[yystos[yylrState]]], [[yysemantics.yysval]],
                      [copy], [that.yysemantics.yysval])], [[
-    yynewState->yysemantics.yysval = *yyvalp;]])[
-    yyloc = that.yyloc;
+    yynewState->yysemantics.yysval = *yyvalp;]])b4_locations_if([
+    yyloc = that.yyloc;])[
     return *this;
 }]])[
   /** Type tag: always true.  */
@@ -1264,13 +1264,13 @@ yyremoveDeletes (yyGLRStack* yystackp)
 
 ]b4_variant_if([[
 static inline void
-yysymbolCopy (int& yychar1, YYSTYPE& yyval1, YYLTYPE& yyloc1,
-              const int& yychar2, const YYSTYPE& yyval2, const YYLTYPE& yyloc2)
+yysymbolCopy (int& yychar1, YYSTYPE& yyval1]b4_locations_if([, YYLTYPE& yyloc1])[,
+              const int& yychar2, const YYSTYPE& yyval2]b4_locations_if([, const YYLTYPE& yyloc2])[)
 {
   ]b4_symbol_variant([[YYTRANSLATE (yychar2)]], [[yyval1]],
                      [copy], [yyval2])[
-  yychar1 = yychar2;
-  yyloc1 = yyloc2;
+  yychar1 = yychar2;]b4_locations_if([
+  yyloc1 = yyloc2;])[
 }
 
 static inline void
@@ -1286,15 +1286,15 @@ yysymbolSwap (int& yychar1, YYSTYPE& yyval1]b4_locations_if([, YYLTYPE& yyloc1])
 #define YY_SYMBOL_SWAP yysymbolSwap
 ]],
 [[
-#define YY_SYMBOL_COPY(Yychar1, Yyval1, Yyloc1, Yychar2, Yyval2, Yyloc2) \
+#define YY_SYMBOL_COPY(Yychar1, Yyval1]b4_locations_if([, Yyloc1])[, Yychar2, Yyval2]b4_locations_if([, Yyloc2])[) \
   do {                                                                  \
     Yychar1 = Yychar2;                                                  \
     Yyval1  = Yyval2;]b4_locations_if([[                                \
     Yyloc1  = Yyloc2;]])[                                                   \
   } while (0)
 
-#define YY_SYMBOL_SWAP(Yychar1, Yyval1, Yyloc1, Yychar2, Yyval2, Yyloc2) \
-    YY_SYMBOL_COPY(Yychar1, Yyval1, Yyloc1, Yychar2, Yyval2, Yyloc2)
+#define YY_SYMBOL_SWAP(Yychar1, Yyval1]b4_locations_if([ ,Yyloc1])[, Yychar2, Yyval2]b4_locations_if([, Yyloc2])[) \
+    YY_SYMBOL_COPY(Yychar1, Yyval1]b4_locations_if([ ,Yyloc1])[, Yychar2, Yyval2]b4_locations_if([, Yyloc2])[)
 ]])[
 /** Shift to a new state on stack #YYK of *YYSTACKP, corresponding to LR
  * state YYLRSTATE, at input position YYPOSN, with (resolved) semantic
@@ -1719,18 +1719,18 @@ yyresolveAction (yySemanticOption* yyopt, yyGLRStack* yystackp,
   //  YY_SYMBOL_PRINT("yyresolveAction: BEFORE",
   //                  YYTRANSLATE(yychar), &yylval, &yylloc);
 
-    YY_SYMBOL_SWAP (yychar_current, yylval_current, yylloc_current,
-                    yychar, yylval, yylloc);
-    YY_SYMBOL_COPY (yychar, yylval, yylloc,
-                    yyopt->yyrawchar, yyopt->yyval, yyopt->yyloc);
+    YY_SYMBOL_SWAP (yychar_current, yylval_current]b4_locations_if([, yylloc_current])[,
+                    yychar, yylval]b4_locations_if([, yylloc])[);
+    YY_SYMBOL_COPY (yychar, yylval]b4_locations_if([, yylloc])[,
+                    yyopt->yyrawchar, yyopt->yyval]b4_locations_if([, yyopt->yyloc])[);
 
     //  YY_SYMBOL_PRINT("yyresolveAction: DURING",
     //              YYTRANSLATE(yychar), &yylval, &yylloc);
     yyflag = yyuserAction (yyopt->yyrule, yynrhs,
                            yyrhsVals + YYMAXRHS + YYMAXLEFT - 1,
                            yystackp, yyvalp]b4_locuser_args[);
-    YY_SYMBOL_SWAP (yychar, yylval, yylloc,
-                    yychar_current, yylval_current, yylloc_current);
+    YY_SYMBOL_SWAP (yychar, yylval]b4_locations_if([, yylloc])[,
+                    yychar_current, yylval_current]b4_locations_if([, yylloc_current])[);
     //  YY_SYMBOL_PRINT("yyresolveAction: AFTER",
     //              YYTRANSLATE(yychar), &yylval, &yylloc);
   }
