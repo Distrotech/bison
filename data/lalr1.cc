@@ -20,7 +20,7 @@ m4_include(b4_pkgdatadir/[c++.m4])
 
 # b4_integral_parser_table_declare(TABLE-NAME, CONTENT, COMMENT)
 # --------------------------------------------------------------
-# Declare "parser::yy<TABLE-NAME>_" which contents is CONTENT.
+# Declare "parser::yy<TABLE-NAME>_" whose contents is CONTENT.
 m4_define([b4_integral_parser_table_declare],
 [m4_ifval([$3], [b4_comment([$3], [  ])
 ])dnl
@@ -29,7 +29,7 @@ m4_define([b4_integral_parser_table_declare],
 
 # b4_integral_parser_table_define(TABLE-NAME, CONTENT, COMMENT)
 # -------------------------------------------------------------
-# Define "parser::yy<TABLE-NAME>_" which contents is CONTENT.
+# Define "parser::yy<TABLE-NAME>_" whose contents is CONTENT.
 m4_define([b4_integral_parser_table_define],
 [  const b4_int_type_for([$2])
   b4_parser_class_name::yy$1_[[]] =
@@ -112,6 +112,19 @@ b4_syncline([@oline@], [@ofile@])
 m4_popdef([b4_symbol_value])[]dnl
 b4_dollar_popdef[]dnl
 ])])
+
+
+# b4_lex
+# ------
+# Call yylex.
+m4_define([b4_lex],
+[b4_token_ctor_if(
+[b4_function_call([yylex],
+                  [symbol_type], m4_ifdef([b4_lex_param], b4_lex_param))],
+[b4_function_call([yylex], [int],
+                  [b4_api_PREFIX[STYPE*], [&yyla.value]][]dnl
+b4_locations_if([, [[location*], [&yyla.location]]])dnl
+m4_ifdef([b4_lex_param], [, ]b4_lex_param))])])
 
 
 m4_pushdef([b4_copyright_years],
@@ -214,6 +227,9 @@ b4_location_define])])[
     static const ]b4_int_type(b4_pact_ninf, b4_pact_ninf)[ yypact_ninf_;
     static const ]b4_int_type(b4_table_ninf, b4_table_ninf)[ yytable_ninf_;
 
+    /// Convert a scanner token number \a t to a symbol number.
+    static inline token_number_type yytranslate_ (]b4_token_ctor_if([token_type], [int])[ t);
+
     // Tables.
 ]b4_parser_tables_declare[]b4_error_verbose_if([
 
@@ -225,7 +241,7 @@ b4_location_define])])[
     static const char* const yytname_[];
 ]b4_token_table_if([[#if ]b4_api_PREFIX[DEBUG]])[
 ]b4_integral_parser_table_declare([rline], [b4_rline],
-     [YYRLINE[YYN] -- Source line where rule number YYN was defined.])[
+     [[YYRLINE[YYN] -- Source line where rule number YYN was defined.]])[
     /// Report on the debug stream that the rule \a r is going to be reduced.
     virtual void yy_reduce_print_ (int r);
     /// Print the state stack on the debug stream.
@@ -234,12 +250,7 @@ b4_location_define])])[
     // Debugging.
     int yydebug_;
     std::ostream* yycdebug_;
-#endif // ]b4_api_PREFIX[DEBUG
 
-    /// Convert a scanner token number \a t to a symbol number.
-    static inline token_number_type yytranslate_ (]b4_token_ctor_if([token_type], [int])[ t);
-
-#if ]b4_api_PREFIX[DEBUG
     /// \brief Display a symbol type, value and location.
     /// \param yyo    The output stream.
     /// \param yysym  The symbol.
@@ -256,7 +267,6 @@ b4_location_define])])[
     inline void yy_destroy_ (const char* yymsg,
                              symbol_base_type<Exact>& yysym) const;
 
-  private:
     /// Element of the stack: a state and its attributes.
     struct stack_symbol_type : symbol_base_type<stack_symbol_type>
     {
@@ -302,7 +312,7 @@ b4_location_define])])[
     /// Pop \a n symbols the three stacks.
     inline void yypop_ (unsigned int n = 1);
 
-    /* Constants.  */
+    // Constants.
     enum
     {
       yyeof_ = 0,
@@ -340,7 +350,7 @@ b4_public_types_define])[
 [b4_token_defines
 
 #ifndef ]b4_api_PREFIX[STYPE
- /* Redirection for backward compatibility.  */
+ // Redirection for backward compatibility.
 # define ]b4_api_PREFIX[STYPE b4_namespace_ref::b4_parser_class_name::semantic_type
 #endif
 ])[
@@ -356,7 +366,7 @@ b4_copyright([Skeleton interface for Bison LALR(1) parsers in C++])
  ** Define the ]b4_namespace_ref[::parser class.
  */
 
-/* C++ LALR(1) parser skeleton written by Akim Demaille.  */
+// C++ LALR(1) parser skeleton written by Akim Demaille.
 
 ]b4_cpp_guard_open([b4_spec_defines_file])[
 ]b4_shared_declarations[
@@ -381,14 +391,14 @@ m4_if(b4_prefix, [yy], [],
 ]b4_defines_if([[#include "@basename(]b4_spec_defines_file[@)"]],
                [b4_shared_declarations])[
 
-/* User implementation prologue.  */
+// User implementation prologue.
 ]b4_user_post_prologue[
 ]b4_percent_code_get[
 
 #ifndef YY_
 # if defined YYENABLE_NLS && YYENABLE_NLS
 #  if ENABLE_NLS
-#   include <libintl.h> /* FIXME: INFRINGES ON USER NAME SPACE */
+#   include <libintl.h> // FIXME: INFRINGES ON USER NAME SPACE.
 #   define YY_(msgid) dgettext ("bison-runtime", msgid)
 #  endif
 # endif
@@ -401,13 +411,13 @@ m4_if(b4_prefix, [yy], [],
 [#define YYRHSLOC(Rhs, K) ((Rhs)[K].location)
 ]b4_yylloc_default_define])[
 
-/* Suppress unused-variable warnings by "using" E.  */
-#define YYUSE(e) ((void) (e))
+// Suppress unused-variable warnings by "using" E.
+#define YYUSE(E) ((void) (E))
 
-/* Enable debugging if requested.  */
+// Enable debugging if requested.
 #if ]b4_api_PREFIX[DEBUG
 
-/* A pseudo ostream that takes yydebug_ into account.  */
+// A pseudo ostream that takes yydebug_ into account.
 # define YYCDEBUG if (yydebug_) (*yycdebug_)
 
 # define YY_SYMBOL_PRINT(Title, Symbol)         \
@@ -432,14 +442,14 @@ m4_if(b4_prefix, [yy], [],
       yystack_print_ ();                \
   } while (false)
 
-#else /* !]b4_api_PREFIX[DEBUG */
+#else // !]b4_api_PREFIX[DEBUG
 
 # define YYCDEBUG if (false) std::cerr
 # define YY_SYMBOL_PRINT(Title, Symbol)  YYUSE(Symbol)
 # define YY_REDUCE_PRINT(Rule)           static_cast<void>(0)
 # define YY_STACK_PRINT()                static_cast<void>(0)
 
-#endif /* !]b4_api_PREFIX[DEBUG */
+#endif // !]b4_api_PREFIX[DEBUG
 
 #define yyerrok         (yyerrstatus_ = 0)
 #define yyclearin       (yyempty = true)
@@ -474,7 +484,7 @@ m4_if(b4_prefix, [yy], [],
             case '\\':
               if (*++yyp != '\\')
                 goto do_not_strip_quotes;
-              /* Fall through.  */
+              // Fall through.
             default:
               yyr += *yyp;
               break;
@@ -699,7 +709,7 @@ m4_if(b4_prefix, [yy], [],
 
 ]m4_ifdef([b4_initial_action], [
 b4_dollar_pushdef([yyla.value], [], [yyla.location])dnl
-    /* User initialization code.  */
+    // User initialization code.
     b4_user_initial_action
 b4_dollar_popdef])[]dnl
 
@@ -714,34 +724,29 @@ b4_dollar_popdef])[]dnl
   yynewstate:
     YYCDEBUG << "Entering state " << yystack_[0].state << std::endl;
 
-    /* Accept?  */
+    // Accept?
     if (yystack_[0].state == yyfinal_)
       goto yyacceptlab;
 
     goto yybackup;
 
-    /* Backup.  */
+    // Backup.
   yybackup:
 
-    /* Try to take a decision without lookahead.  */
+    // Try to take a decision without lookahead.
     yyn = yypact_[yystack_[0].state];
     if (yy_pact_value_is_default_ (yyn))
       goto yydefault;
 
-    /* Read a lookahead token.  */
+    // Read a lookahead token.
     if (yyempty)
       {
         YYCDEBUG << "Reading a token: ";
         try
-          {
-]b4_token_ctor_if(
-[          symbol_type yylookahead = b4_function_call([yylex], [symbol_type],
-                                   m4_ifdef([b4_lex_param], b4_lex_param));
-	   yyla.move(yylookahead);],
-[          yyla.type = yytranslate_ (b4_function_call([yylex], [int],
-				     [b4_api_PREFIX[STYPE*], [&yyla.value]][]dnl
-b4_locations_if([, [[location*], [&yyla.location]]])dnl
-m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
+          {]b4_token_ctor_if([[
+            symbol_type yylookahead = ]b4_lex[;
+            yyla.move (yylookahead);]], [[
+            yyla.type = yytranslate_ (]b4_lex[);]])[
           }
         catch (const syntax_error& yyexc)
           {
@@ -758,7 +763,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
     if (yyn < 0 || yylast_ < yyn || yycheck_[yyn] != yyla.type)
       goto yydefault;
 
-    /* Reduce or error.  */
+    // Reduce or error.
     yyn = yytable_[yyn];
     if (yyn <= 0)
       {
@@ -768,15 +773,14 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
         goto yyreduce;
       }
 
-    /* Discard the token being shifted.  */
+    // Discard the token being shifted.
     yyempty = true;
 
-    /* Count tokens shifted since error; after three, turn off error
-       status.  */
+    // Count tokens shifted since error; after three, turn off error status.
     if (yyerrstatus_)
       --yyerrstatus_;
 
-    /* Shift the lookahead token.  */
+    // Shift the lookahead token.
     yypush_ ("Shifting", yyn, yyla);
     goto yynewstate;
 
@@ -837,7 +841,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
 ]b4_variant_if([[
     // Destroy the rhs symbols.
     for (int i = 0; i < yylen; ++i)
-      // Destroy a variant which value may have been swapped with
+      // Destroy a variant whose value may have been swapped with
       // yylhs.value (for instance if the action was "std::swap($$,
       // $1)").  The value of yylhs.value (hence possibly one of these
       // rhs symbols) depends on the default construction for this
@@ -853,7 +857,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
     yylen = 0;
     YY_STACK_PRINT ();
 
-    /* Shift the result of the reduction.  */
+    // Shift the result of the reduction.
     yypush_ (YY_NULL, yylhs);
     goto yynewstate;
 
@@ -861,7 +865,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
   | yyerrlab -- here on detecting error.  |
   `--------------------------------------*/
   yyerrlab:
-    /* If not already recovering from an error, report this error.  */
+    // If not already recovering from an error, report this error.
     if (!yyerrstatus_)
       {
         ++yynerrs_;
@@ -877,7 +881,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
         /* If just tried and failed to reuse lookahead token after an
            error, discard it.  */
 
-        /* Return failure if at end of input.  */
+        // Return failure if at end of input.
         if (yyla.type == yyeof_)
           YYABORT;
         else if (!yyempty)
@@ -887,8 +891,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
           }
       }
 
-    /* Else will try to reuse lookahead token after shifting the error
-       token.  */
+    // Else will try to reuse lookahead token after shifting the error token.
     goto yyerrlab1;
 
 
@@ -905,7 +908,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
     yyerror_range[1].location = yystack_[yylen - 1].location;]])b4_variant_if([[
     /* $$ was initialized before running the user action.  */
     yy_destroy_ ("Error: discarding", yylhs);]])[
-    /* Do not reclaim the symbols of the rule which action triggered
+    /* Do not reclaim the symbols of the rule whose action triggered
        this YYERROR.  */
     yypop_ (yylen);
     yylen = 0;
@@ -915,7 +918,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
   | yyerrlab1 -- common code for both syntax error and YYERROR.  |
   `-------------------------------------------------------------*/
   yyerrlab1:
-    yyerrstatus_ = 3;   /* Each real token shifted decrements this.  */
+    yyerrstatus_ = 3;   // Each real token shifted decrements this.
     {
       stack_symbol_type error_token;
       for (;;)
@@ -945,18 +948,18 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
       yyerror_range[2].location = yyla.location;
       YYLLOC_DEFAULT (error_token.location, yyerror_range, 2);]])[
 
-      /* Shift the error token.  */
+      // Shift the error token.
       error_token.state = yyn;
       yypush_ ("Shifting", error_token);
     }
     goto yynewstate;
 
-    /* Accept.  */
+    // Accept.
   yyacceptlab:
     yyresult = 0;
     goto yyreturn;
 
-    /* Abort.  */
+    // Abort.
   yyabortlab:
     yyresult = 1;
     goto yyreturn;
@@ -965,7 +968,7 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)));])[
     if (!yyempty)
       yy_destroy_ ("Cleanup: discarding lookahead", yyla);
 
-    /* Do not reclaim the symbols of the rule which action triggered
+    /* Do not reclaim the symbols of the rule whose action triggered
        this YYABORT or YYACCEPT.  */
     yypop_ (yylen);
     while (1 < yystack_.size ())
@@ -1051,7 +1054,7 @@ b4_error_verbose_if([state_type yystate, int yytoken],
                YYCHECK.  In other words, skip the first -YYN actions for
                this state because they are default actions.  */
             int yyxbegin = yyn < 0 ? -yyn : 0;
-            /* Stay within bounds of both yycheck and yytname.  */
+            // Stay within bounds of both yycheck and yytname.
             int yychecklim = yylast_ - yyn + 1;
             int yyxend = yychecklim < yyntokens_ ? yychecklim : yyntokens_;
             for (int yyx = yyxbegin; yyx < yyxend; ++yyx)
@@ -1107,8 +1110,8 @@ b4_error_verbose_if([state_type yystate, int yytoken],
 ]b4_parser_tables_define[
 
 ]b4_token_table_if([], [[#if ]b4_api_PREFIX[DEBUG]])[
-  /* YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
-     First, the terminals, then, starting at \a yyntokens_, nonterminals.  */
+  // YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
+  // First, the terminals, then, starting at \a yyntokens_, nonterminals.
   const char*
   const ]b4_parser_class_name[::yytname_[] =
   {
@@ -1137,10 +1140,10 @@ b4_error_verbose_if([state_type yystate, int yytoken],
   {
     unsigned int yylno = yyrline_[yyrule];
     int yynrhs = yyr2_[yyrule];
-    /* Print the symbols being reduced, and their result.  */
+    // Print the symbols being reduced, and their result.
     *yycdebug_ << "Reducing stack by rule " << yyrule - 1
                << " (line " << yylno << "):" << std::endl;
-    /* The symbols being reduced.  */
+    // The symbols being reduced.
     for (int yyi = 0; yyi < yynrhs; yyi++)
       YY_SYMBOL_PRINT ("   $" << yyi + 1 << " =",
                        ]b4_rhs_data(yynrhs, yyi + 1)[);

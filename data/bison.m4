@@ -250,30 +250,30 @@ m4_define([b4_integral_parser_tables_map],
 STATE-NUM.]])
 
 $1([defact], [b4_defact],
-   [[YYDEFACT[S] -- default reduction number in state S.  Performed when
-YYTABLE does not specify something else to do.  Zero means the default
-is an error.]])
+   [[YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
+Performed when YYTABLE does not specify something else to do.  Zero
+means the default is an error.]])
 
 $1([pgoto], [b4_pgoto], [[YYPGOTO[NTERM-NUM].]])
 
 $1([defgoto], [b4_defgoto], [[YYDEFGOTO[NTERM-NUM].]])
 
 $1([table], [b4_table],
-   [[YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
-positive, shift that token.  If negative, reduce the rule which
+   [[YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
+positive, shift that token.  If negative, reduce the rule whose
 number is the opposite.  If YYTABLE_NINF, syntax error.]])
 
 $1([check], [b4_check])
 
 $1([stos], [b4_stos],
-   [[STOS_[STATE-NUM] -- The (internal number of the) accessing
+   [[YYSTOS[STATE-NUM] -- The (internal number of the) accessing
 symbol of state STATE-NUM.]])
 
 $1([r1], [b4_r1],
    [[YYR1[YYN] -- Symbol number of symbol that rule YYN derives.]])
 
 $1([r2], [b4_r2],
-   [[YYR2[YYN] -- Number of symbols composing right hand side of rule YYN.]])
+   [[YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.]])
 ])
 
 
@@ -300,7 +300,7 @@ m4_define([b4_flag_if],
 [m4_case(b4_$1_flag,
          [0], [$3],
          [1], [$2],
-         [m4_fatal([invalid $1 value: ]$1)])])
+         [m4_fatal([invalid $1 value: ]b4_$1_flag)])])
 
 
 # b4_define_flag_if(FLAG)
@@ -341,6 +341,33 @@ b4_define_flag_if([yacc])               # Whether POSIX Yacc is emulated.
 # macro per (token, field), where field can has_id, id, etc.: see
 # src/output.c:prepare_symbols_definitions().
 #
+# The various FIELDS are:
+#
+# - has_id: 0 or 1.
+#   Whether the symbol has an id.
+# - id: string
+#   If has_id, the id.  Guaranteed to be usable as a C identifier.
+# - tag: string.
+#   A representat of the symbol.  Can be 'foo', 'foo.id', '"foo"' etc.
+# - user_number: integer
+#   The assigned (external) number as used by yylex.
+# - is_token: 0 or 1
+#   Whether this is a terminal symbol.
+# - number: integer
+#   The internalized number (used after yytranslate).
+# - has_type: 0, 1
+#   Whether has a semantic value.
+# - type
+#   If it has a semantic value, its type tag, or, if variant are used,
+#   its type.
+# - has_printer: 0, 1
+# - printer: string
+# - printer_file: string
+# - printer_line: integer
+#   If the symbol has a printer, everything about it.
+# - has_destructor, destructor, destructor_file, destructor_line
+#   Likewise.
+#
 # The following macros provide access to these values.
 
 # b4_symbol_(NUM, FIELD)
@@ -354,7 +381,7 @@ m4_define([b4_symbol_],
 # b4_symbol(NUM, FIELD)
 # ---------------------
 # Recover a FIELD about symbol #NUM.  Thanks to m4_indir, fails if
-# undefined.  If FIELD = id, prepend the prefix.
+# undefined.  If FIELD = id, prepend the token prefix.
 m4_define([b4_symbol],
 [m4_case([$2],
          [id],    [m4_do([b4_percent_define_get([api.token.prefix])],
@@ -371,6 +398,14 @@ m4_define([b4_symbol_if],
          [1], [$3],
          [0], [$4],
          [m4_fatal([$0: field $2 of $1 is not a Boolean:] b4_symbol([$1], [$2]))])])
+
+
+# b4_symbol_tag_comment(SYMBOL-NUM)
+# ---------------------------------
+# Issue a comment giving the tag of symbol NUM.
+m4_define([b4_symbol_tag_comment],
+[b4_comment([b4_symbol([$1], [tag])])
+])
 
 
 # b4_symbol_action_location(SYMBOL-NUM, KIND)
@@ -390,9 +425,9 @@ m4_define([b4_symbol_action],
                    b4_symbol_if([$1], [has_type],
                                 [m4_dquote(b4_symbol([$1], [type]))]),
                    [(*yylocationp)])dnl
-      b4_symbol_case_([$1])[]dnl
+    b4_symbol_case_([$1])[]dnl
 b4_syncline([b4_symbol([$1], [$2_line])], ["b4_symbol([$1], [$2_file])"])
-        b4_symbol([$1], [$2])
+      b4_symbol([$1], [$2])
 b4_syncline([@oline@], [@ofile@])
         break;
 
@@ -411,7 +446,7 @@ m4_define([b4_symbol_printer],    [b4_symbol_action([$1], [printer])])
 # ---------------------------
 # Issue a "case NUM" for SYMBOL-NUM.
 m4_define([b4_symbol_case_],
-[      case b4_symbol([$1], [number]): // b4_symbol([$1], [tag])
+[case b4_symbol([$1], [number]): b4_symbol_tag_comment([$1])])
 ])
 
 
@@ -469,6 +504,9 @@ m4_define([b4_token_format],
 # ---------------------
 # Run actions for the symbol NUMS that all have the same type-name.
 # Skip NUMS that have no type-name.
+#
+# To specify the action to run, define b4_dollar_dollar(NUMBER,
+# TAG, TYPE).
 m4_define([b4_type_action_],
 [b4_symbol_if([$1], [has_type],
 [m4_map([b4_symbol_case_], [$@])[]dnl
@@ -503,11 +541,21 @@ m4_define([b4_basename],
 # -----------------------
 m4_define([b4_syncline],
 [b4_flag_if([synclines],
-[b4_sync_end([__line__], [b4_basename(m4_quote(__file__))])
-b4_sync_start([$1], [$2])])])
+[b4_sync_start([$1], [$2]) b4_sync_end([__line__],
+                                       [b4_basename(m4_quote(__file__))])[]dnl
+])])
 
-m4_define([b4_sync_end], [b4_comment([Line $1 of $2])])
-m4_define([b4_sync_start], [b4_comment([Line $1 of $2])])
+# b4_sync_start(LINE, FILE)
+# -----------------------
+# Syncline for the new place.  Typically a directive for the compiler.
+m4_define([b4_sync_start], [b4_comment([$2:$1])])
+
+# b4_sync_end(LINE, FILE)
+# -----------------------
+# Syncline for the current place, which ends.  Typically a comment
+# left for the reader.
+m4_define([b4_sync_end],   [b4_comment([$2:$1])])
+
 
 # b4_user_code(USER-CODE)
 # -----------------------
@@ -821,13 +869,12 @@ m4_percent_define_default([[api.token.prefix]], [[]])
 # b4_parse_assert_if([IF-ASSERTIONS-ARE-USED], [IF-NOT])
 # b4_parse_trace_if([IF-DEBUG-TRACES-ARE-ENABLED], [IF-NOT])
 # b4_token_ctor_if([IF-YYLEX-RETURNS-A-TOKEN], [IF-NOT])
-# b4_variant_if([IF-VARIANT-ARE-USED], [IF-NOT])
 # ----------------------------------------------
 b4_percent_define_if_define([token_ctor], [api.token.constructor])
 b4_percent_define_if_define([locations])     # Whether locations are tracked.
 b4_percent_define_if_define([parse.assert])
 b4_percent_define_if_define([parse.trace])
-b4_percent_define_if_define([variant])
+
 
 # b4_bison_locations_if([IF-TRUE])
 # --------------------------------
@@ -852,6 +899,15 @@ b4_define_flag_if([error_verbose])
 
 # yytoken_table is needed to support verbose errors.
 b4_error_verbose_if([m4_define([b4_token_table_flag], [1])])
+
+
+# b4_variant_if([IF-VARIANT-ARE-USED], [IF-NOT])
+# ----------------------------------------------
+b4_percent_define_if_define([variant])
+m4_case(b4_percent_define_get([[api.value.type]]),
+        [variant], [m4_define([b4_variant_flag], [[1]])],
+                   [m4_define([b4_variant_flag], [[0]])])
+b4_define_flag_if([variant])
 
 
 ## ----------------------------------------------------------- ##

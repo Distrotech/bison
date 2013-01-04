@@ -77,9 +77,7 @@ static size_t no_cr_read (FILE *, char *, size_t);
 #define DEPRECATED(Msg)                                         \
   do {                                                          \
     size_t i;                                                   \
-    complain (loc, Wdeprecated,                                 \
-              _("deprecated directive: %s, use %s"),            \
-              quote (yytext), quote_n (1, Msg));                \
+    deprecated_directive (loc, yytext, Msg);                    \
     scanner_cursor.column -= mbsnwidth (Msg, strlen (Msg), 0);  \
     for (i = strlen (Msg); i != 0; --i)                         \
       unput (Msg[i - 1]);                                       \
@@ -519,23 +517,15 @@ eqopt    ([[:space:]]*=)?
 
 <SC_ESCAPED_STRING>
 {
-  "\""|"\n" {
-    if (yytext[0] == '\n')
-      unexpected_newline (token_start, "\"");
+  "\"" {
     STRING_FINISH;
     loc->start = token_start;
     val->chars = last_string;
     BEGIN INITIAL;
     return STRING;
   }
-  <<EOF>> {
-    unexpected_eof (token_start, "\"");
-    STRING_FINISH;
-    loc->start = token_start;
-    val->chars = last_string;
-    BEGIN INITIAL;
-    return STRING;
-  }
+  <<EOF>>   unexpected_eof (token_start, "\"");
+  "\n"      unexpected_newline (token_start, "\"");
 }
 
   /*----------------------------------------------------------.
@@ -545,49 +535,27 @@ eqopt    ([[:space:]]*=)?
 
 <SC_ESCAPED_CHARACTER>
 {
-  "'"|"\n" {
+  "'" {
     STRING_FINISH;
     loc->start = token_start;
     val->character = last_string[0];
+
+    /* FIXME: Eventually, make these errors.  */
+    if (last_string[0] == '\0')
     {
-      /* FIXME: Eventually, make these errors.  */
-      if (last_string[0] == '\0')
-        {
-          complain (loc, Wother, _("empty character literal"));
-          /* '\0' seems dangerous even if we are about to complain.  */
-          val->character = '\'';
-        }
-      else if (last_string[1] != '\0')
-        complain (loc, Wother,
-                  _("extra characters in character literal"));
+      complain (loc, Wother, _("empty character literal"));
+      /* '\0' seems dangerous even if we are about to complain.  */
+      val->character = '\'';
     }
-    if (yytext[0] == '\n')
-      unexpected_newline (token_start, "'");
+    else if (last_string[1] != '\0')
+      complain (loc, Wother,
+                _("extra characters in character literal"));
     STRING_FREE;
     BEGIN INITIAL;
     return CHAR;
   }
-  <<EOF>> {
-    STRING_FINISH;
-    loc->start = token_start;
-    val->character = last_string[0];
-    {
-      /* FIXME: Eventually, make these errors.  */
-      if (last_string[0] == '\0')
-        {
-          complain (loc, Wother, _("empty character literal"));
-          /* '\0' seems dangerous even if we are about to complain.  */
-          val->character = '\'';
-        }
-      else if (last_string[1] != '\0')
-        complain (loc, Wother,
-                  _("extra characters in character literal"));
-    }
-    unexpected_eof (token_start, "'");
-    STRING_FREE;
-    BEGIN INITIAL;
-    return CHAR;
-  }
+  "\n"      unexpected_newline (token_start, "'");
+  <<EOF>>   unexpected_eof (token_start, "'");
 }
 
   /*-----------------------------------------------------------.
@@ -614,15 +582,7 @@ eqopt    ([[:space:]]*=)?
   [^<>]+ STRING_GROW;
   "<"+   STRING_GROW; nesting += yyleng;
 
-  <<EOF>> {
-    unexpected_eof (token_start, ">");
-    STRING_FINISH;
-    loc->start = token_start;
-    val->uniqstr = uniqstr_new (last_string);
-    STRING_FREE;
-    BEGIN INITIAL;
-    return TAG;
-  }
+  <<EOF>>   unexpected_eof (token_start, ">");
 }
 
   /*----------------------------.
@@ -693,15 +653,15 @@ eqopt    ([[:space:]]*=)?
 <SC_CHARACTER>
 {
   "'"           STRING_GROW; BEGIN context_state;
-  \n            unexpected_newline (token_start, "'"); BEGIN context_state;
-  <<EOF>>       unexpected_eof (token_start, "'"); BEGIN context_state;
+  \n            unexpected_newline (token_start, "'");
+  <<EOF>>       unexpected_eof (token_start, "'");
 }
 
 <SC_STRING>
 {
   "\""          STRING_GROW; BEGIN context_state;
-  \n            unexpected_newline (token_start, "\""); BEGIN context_state;
-  <<EOF>>       unexpected_eof (token_start, "\""); BEGIN context_state;
+  \n            unexpected_newline (token_start, "\"");
+  <<EOF>>       unexpected_eof (token_start, "\"");
 }
 
 
@@ -752,15 +712,7 @@ eqopt    ([[:space:]]*=)?
      (as '<' '<%').  */
   "<"{splice}"<"  STRING_GROW;
 
-  <<EOF>> {
-    int token = (YY_START == SC_BRACED_CODE) ? BRACED_CODE : BRACED_PREDICATE;
-    unexpected_eof (code_start, "}");
-    STRING_FINISH;
-    loc->start = code_start;
-    val->code = last_string;
-    BEGIN INITIAL;
-    return token;
-  }
+  <<EOF>>   unexpected_eof (code_start, "}");
 }
 
 <SC_BRACED_CODE>
@@ -811,14 +763,7 @@ eqopt    ([[:space:]]*=)?
     return PROLOGUE;
   }
 
-  <<EOF>> {
-    unexpected_eof (code_start, "%}");
-    STRING_FINISH;
-    loc->start = code_start;
-    val->chars = last_string;
-    BEGIN INITIAL;
-    return PROLOGUE;
-  }
+  <<EOF>>   unexpected_eof (code_start, "%}");
 }
 
 
@@ -1001,8 +946,8 @@ handle_syncline (char *args, location loc)
 
 /*----------------------------------------------------------------.
 | For a token or comment starting at START, report message MSGID, |
-| which should say that an end marker was found before            |
-| the expected TOKEN_END.                                         |
+| which should say that an end marker was found before the        |
+| expected TOKEN_END. Then, pretend that TOKEN_END was found.     |
 `----------------------------------------------------------------*/
 
 static void
@@ -1011,6 +956,15 @@ unexpected_end (boundary start, char const *msgid, char const *token_end)
   location loc;
   loc.start = start;
   loc.end = scanner_cursor;
+  size_t i = strlen (token_end);
+
+/* Adjust scanner cursor so that any later message does not count
+     the characters about to be inserted.  */
+  scanner_cursor.column -= i;
+
+  while (i != 0)
+    unput (token_end[--i]);
+
   token_end = quote (token_end);
   /* Instead of '\'', display "'".  */
   if (STREQ (token_end, "'\\''"))
@@ -1022,6 +976,7 @@ unexpected_end (boundary start, char const *msgid, char const *token_end)
 /*------------------------------------------------------------------------.
 | Report an unexpected EOF in a token or comment starting at START.       |
 | An end of file was encountered and the expected TOKEN_END was missing.  |
+| After reporting the problem, pretend that TOKEN_END was found.          |
 `------------------------------------------------------------------------*/
 
 static void

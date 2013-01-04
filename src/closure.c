@@ -44,7 +44,7 @@ static bitsetv firsts = NULL;
 
 /* Retrieve the FDERIVES/FIRSTS sets of the nonterminals numbered Var.  */
 #define FDERIVES(Var)   fderives[(Var) - ntokens]
-#define   FIRSTS(Var)   firsts[(Var) - ntokens]
+#define FIRSTS(Var)   firsts[(Var) - ntokens]
 
 
 /*-----------------.
@@ -52,7 +52,7 @@ static bitsetv firsts = NULL;
 `-----------------*/
 
 static void
-print_closure (char const *title, item_number *array, size_t size)
+print_closure (char const *title, item_number const *array, size_t size)
 {
   size_t i;
   fprintf (stderr, "Closure: %s\n", title);
@@ -77,12 +77,9 @@ print_firsts (void)
   for (i = ntokens; i < nsyms; i++)
     {
       bitset_iterator iter;
-      fprintf (stderr, "\t%s firsts\n", symbols[i]->tag);
+      fprintf (stderr, "  %s firsts\n", symbols[i]->tag);
       BITSET_FOR_EACH (iter, FIRSTS (i), j, 0)
-        {
-          fprintf (stderr, "\t\t%s\n",
-                   symbols[j + ntokens]->tag);
-        }
+        fprintf (stderr, "    %s\n", symbols[j + ntokens]->tag);
     }
   fprintf (stderr, "\n\n");
 }
@@ -98,10 +95,10 @@ print_fderives (void)
   for (i = ntokens; i < nsyms; i++)
     {
       bitset_iterator iter;
-      fprintf (stderr, "\t%s derives\n", symbols[i]->tag);
+      fprintf (stderr, "  %s derives\n", symbols[i]->tag);
       BITSET_FOR_EACH (iter, FDERIVES (i), r, 0)
         {
-          fprintf (stderr, "\t\t%3d ", r);
+          fprintf (stderr, "    %3d ", r);
           rule_rhs_print (&rules[r], stderr);
           fprintf (stderr, "\n");
         }
@@ -192,7 +189,7 @@ new_closure (unsigned int n)
 
 
 void
-closure (item_number *core, size_t n)
+closure (item_number const *core, size_t n)
 {
   /* Index over CORE. */
   size_t c;

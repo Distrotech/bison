@@ -384,11 +384,45 @@ muscle_user_name_list_grow (char const *key, char const *user_name,
   muscle_grow (key, "]]", "");
 }
 
-/** If the \a variable name is obsolete, return the name to use,
- * otherwise \a variable. */
+
+/** Return an allocated string that represents the %define directive
+    that performs the assignment.
+
+    @param assignment "VAR", or "VAR=VAL".
+    @param value      default value if VAL \a assignment has no '='.
+
+    For instance:
+    "foo", NULL      => "%define foo"
+    "foo", "baz"     => "%define foo baz"
+    "foo=bar", NULL  => "%define foo bar"
+    "foo=bar", "baz" => "%define foo bar"
+    "foo=", NULL     => "%define foo"
+    "foo=", "baz"    => "%define foo"
+ */
+
 static
-char const *
-muscle_percent_variable_update (char const *variable, location variable_loc)
+char *
+define_directive (char const *assignment, char const *value)
+{
+  char *eq = strchr (assignment, '=');
+  char const *fmt = !eq && value && *value ? "%%define %s %s" : "%%define %s";
+  char *res = xmalloc (strlen (fmt) + strlen (assignment)
+                       + (value ? strlen (value) : 0));
+  sprintf (res, fmt, assignment, value);
+  eq = strchr (res, '=');
+  if (eq)
+    *eq = eq[1] ? ' ' : '\0';
+  return res;
+}
+
+/** If the \a variable name is obsolete, return the name to use,
+ * otherwise \a variable.  If the \a value is obsolete, update it too.
+ *
+ * Allocates the returned value.  */
+static
+char *
+muscle_percent_variable_update (char const *variable, location variable_loc,
+                                char const **value)
 {
   typedef struct
   {
@@ -405,19 +439,38 @@ muscle_percent_variable_update (char const *variable, location variable_loc)
       { "lr.keep-unreachable-states", "lr.keep-unreachable-state", },
       { "lr.keep_unreachable_states", "lr.keep-unreachable-state", },
       { "namespace", "api.namespace", },
+      { "stype", "api.value.type", },
+      { "variant=",     "api.value.type=variant", },
+      { "variant=true", "api.value.type=variant", },
+      { NULL, NULL, }
     };
-  char const *res = variable;
-  int i;
-  for (i = 0; i < ARRAY_CARDINALITY (conversion); ++i)
-    if (STREQ (conversion[i].obsolete, variable))
-      {
-        res = conversion[i].updated;
-        complain (&variable_loc, Wdeprecated,
-                  _("deprecated %%define variable name: %s, use %s"),
-                  quote (variable), quote_n (1, res));
-        break;
-      }
-  return res;
+  conversion_type const *c;
+  for (c = conversion; c->obsolete; ++c)
+    {
+      char const *eq = strchr (c->obsolete, '=');
+      if (eq
+          ? (!strncmp (c->obsolete, variable, eq - c->obsolete)
+             && STREQ (eq + 1, *value))
+          : STREQ (c->obsolete, variable))
+        {
+          char *old = define_directive (c->obsolete, *value);
+          char *upd = define_directive (c->updated, *value);
+          deprecated_directive (&variable_loc, old, upd);
+          free (old);
+          free (upd);
+          char *res = xstrdup (c->updated);
+          {
+            char *eq2 = strchr (res, '=');
+            if (eq2)
+              {
+                *eq2 = '\0';
+                *value = eq2 + 1;
+              }
+          }
+          return res;
+        }
+    }
+  return xstrdup (variable);
 }
 
 void
@@ -426,7 +479,7 @@ muscle_percent_define_insert (char const *var, location variable_loc,
                               muscle_percent_define_how how)
 {
   /* Backward compatibility.  */
-  char const *variable = muscle_percent_variable_update (var, variable_loc);
+  char *variable = muscle_percent_variable_update (var, variable_loc, &value);
   char const *name = UNIQSTR_CONCAT ("percent_define(", variable, ")");
   char const *loc_name = UNIQSTR_CONCAT ("percent_define_loc(", variable, ")");
   char const *syncline_name =
@@ -440,7 +493,7 @@ muscle_percent_define_insert (char const *var, location variable_loc,
       muscle_percent_define_how how_old = atoi (muscle_find_const (how_name));
       unsigned i = 0;
       if (how_old == MUSCLE_PERCENT_DEFINE_F)
-        return;
+        goto end;
       complain_indent (&variable_loc, complaint, &i,
                        _("%%define variable %s redefined"),
                        quote (variable));
@@ -457,6 +510,8 @@ muscle_percent_define_insert (char const *var, location variable_loc,
   muscle_user_name_list_grow ("percent_define_user_variables", variable,
                               variable_loc);
   MUSCLE_INSERT_INT (how_name, how);
+ end:
+  free (variable);
 }
 
 /* This is used for backward compatibility, e.g., "%define api.pure"

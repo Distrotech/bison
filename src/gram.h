@@ -113,7 +113,7 @@ extern int ntokens;
 extern int nvars;
 
 typedef int item_number;
-#define ITEM_NUMBER_MAX INT_MAX
+# define ITEM_NUMBER_MAX INT_MAX
 extern item_number *ritem;
 extern unsigned int nritems;
 
@@ -145,7 +145,7 @@ item_number_is_symbol_number (item_number i)
 
 /* Rule numbers.  */
 typedef int rule_number;
-#define RULE_NUMBER_MAX INT_MAX
+# define RULE_NUMBER_MAX INT_MAX
 extern rule_number nrules;
 
 static inline item_number
@@ -203,31 +203,31 @@ typedef struct
 extern rule *rules;
 
 /* A function that selects a rule.  */
-typedef bool (*rule_filter) (rule *);
+typedef bool (*rule_filter) (rule const *);
 
 /* Return true IFF the rule has a `number' smaller than NRULES.  That is, it is
    useful in the grammar.  */
-bool rule_useful_in_grammar_p (rule *r);
+bool rule_useful_in_grammar_p (rule const *r);
 
 /* Return true IFF the rule has a `number' higher than NRULES.  That is, it is
    useless in the grammar.  */
-bool rule_useless_in_grammar_p (rule *r);
+bool rule_useless_in_grammar_p (rule const *r);
 
 /* Return true IFF the rule is not flagged as useful but is useful in the
    grammar.  In other words, it was discarded because of conflicts.  */
-bool rule_useless_in_parser_p (rule *r);
+bool rule_useless_in_parser_p (rule const *r);
 
 /* Print this rule's number and lhs on OUT.  If a PREVIOUS_LHS was
    already displayed (by a previous call for another rule), avoid
    useless repetitions.  */
-void rule_lhs_print (rule *r, symbol *previous_lhs, FILE *out);
-void rule_lhs_print_xml (rule *r, FILE *out, int level);
+void rule_lhs_print (rule const *r, symbol const *previous_lhs, FILE *out);
+void rule_lhs_print_xml (rule const *r, FILE *out, int level);
 
 /* Return the length of the RHS.  */
-size_t rule_rhs_length (rule *r);
+size_t rule_rhs_length (rule const *r);
 
 /* Print this rule's RHS on OUT.  */
-void rule_rhs_print (rule *r, FILE *out);
+void rule_rhs_print (rule const *r, FILE *out);
 
 
 

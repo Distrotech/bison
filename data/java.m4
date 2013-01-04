@@ -19,15 +19,9 @@
 
 m4_include(b4_pkgdatadir/[c-like.m4])
 
-# b4_comment(TEXT)
-# ----------------
-m4_define([b4_comment], [/* m4_bpatsubst([$1], [
-], [
-   ])  */])
-
 
 # b4_list2(LIST1, LIST2)
-# --------------------------
+# ----------------------
 # Join two lists with a comma if necessary.
 m4_define([b4_list2],
           [$1[]m4_ifval(m4_quote($1), [m4_ifval(m4_quote($2), [[, ]])])[]$2])
@@ -179,8 +173,8 @@ m4_define([b4_predicate_case], [  case $1:
 ## Default values.  ##
 ## ---------------- ##
 
-m4_define([b4_yystype], [b4_percent_define_get([[stype]])])
-b4_percent_define_default([[stype]], [[Object]])
+m4_define([b4_yystype], [b4_percent_define_get([[api.value.type]])])
+b4_percent_define_default([[api.value.type]], [[Object]])
 
 # %name-prefix
 m4_define_default([b4_prefix], [[YY]])

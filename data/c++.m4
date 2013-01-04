@@ -19,6 +19,13 @@
 
 m4_include(b4_pkgdatadir/[c.m4])
 
+# b4_comment(TEXT, [PREFIX])
+# --------------------------
+# Put TEXT in comment. Prefix all the output lines with PREFIX.
+m4_define([b4_comment],
+[b4_comment_([$1], [$2// ], [$2// ])])
+
+
 ## ---------------- ##
 ## Default values.  ##
 ## ---------------- ##
@@ -112,7 +119,8 @@ m4_define([b4_semantic_type_declare],
 [    /// Symbol semantic values.
 m4_ifdef([b4_stype],
 [    union semantic_type
-    {b4_user_stype
+    {
+b4_user_stype
     };],
 [m4_if(b4_tag_seen_flag, 0,
 [[    typedef int semantic_type;]],
@@ -434,7 +442,7 @@ m4_define([b4_cc_constructor_call],
 m4_define([b4_parse_param_vars],
           [m4_ifset([b4_parse_param],
                     [
-    /* User arguments.  */
+    // User arguments.
 b4_cc_var_decls(b4_parse_param)])])
 m4_define([b4_cc_var_decls],
           [m4_map_sep([b4_cc_var_decl], [

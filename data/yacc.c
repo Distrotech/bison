@@ -100,15 +100,6 @@ m4_define([b4_yyerror_args],
 m4_ifset([b4_parse_param], [b4_args(b4_parse_param), ])])
 
 
-# b4_lex_param
-# ------------
-# Accumulate in b4_lex_param all the yylex arguments.
-# b4_lex_param arrives quoted twice, but we want to keep only one level.
-m4_define([b4_lex_param],
-m4_dquote(b4_pure_if([[[[YYSTYPE *yylval]], [[&yylval]]][]dnl
-b4_locations_if([, [[YYLTYPE *yylloc], [&yylloc]]])m4_ifdef([b4_lex_param], [, ])])dnl
-m4_ifdef([b4_lex_param], b4_lex_param)))
-
 
 ## ------------ ##
 ## Data Types.  ##
@@ -613,7 +604,7 @@ static const ]b4_int_type_for([b4_translate])[ yytranslate[] =
 
 #if ]b4_api_PREFIX[DEBUG
 ]b4_integral_parser_table_define([rline], [b4_rline],
-     [YYRLINE[YYN] -- Source line where rule number YYN was defined.])[
+     [[YYRLINE[YYN] -- Source line where rule number YYN was defined.]])[
 #endif
 
 #if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE || ]b4_token_table_flag[
@@ -685,13 +676,6 @@ while (0)
 #define YYRHSLOC(Rhs, K) ((Rhs)[K])
 ]])[
 ]b4_yy_location_print_define[
-
-/* YYLEX -- calling `yylex' with the right arguments.  */
-#ifdef YYLEX_PARAM
-# define YYLEX yylex (]b4_pure_if([&yylval[]b4_locations_if([, &yylloc]), ])[YYLEX_PARAM)
-#else
-# define YYLEX ]b4_function_call([yylex], [int], b4_lex_param)[
-#endif
 
 /* Enable debugging if requested.  */
 #if ]b4_api_PREFIX[DEBUG
@@ -1336,7 +1320,7 @@ b4_function_define([[yyparse]], [[int]], b4_parse_param)[
         }
     }
   do {
-    yychar = YYLEX;
+    yychar = ]b4_lex[;
     yystatus =
       yypush_parse (yyps_local]b4_pure_if([[, yychar, &yylval]b4_locations_if([[, &yylloc]])])m4_ifset([b4_parse_param], [, b4_args(b4_parse_param)])[);
   } while (yystatus == YYPUSH_MORE);
@@ -1597,7 +1581,7 @@ yyread_pushed_token:]])[
         yylval = *yypushed_val;]b4_locations_if([[
       if (yypushed_loc)
         yylloc = *yypushed_loc;]])])], [[
-      yychar = YYLEX;]])[
+      yychar = ]b4_lex[;]])[
     }
 
   if (yychar <= YYEOF)
@@ -1820,7 +1804,7 @@ yyerrorlab:
      goto yyerrorlab;
 
 ]b4_locations_if([[  yyerror_range[1] = yylsp[1-yylen];
-]])[  /* Do not reclaim the symbols of the rule which action triggered
+]])[  /* Do not reclaim the symbols of the rule whose action triggered
      this YYERROR.  */
   YYPOPSTACK (yylen);
   yylen = 0;
@@ -1915,7 +1899,7 @@ yyreturn:
       yydestruct ("Cleanup: discarding lookahead",
                   yytoken, &yylval]b4_locations_if([, &yylloc])[]b4_user_args[);
     }
-  /* Do not reclaim the symbols of the rule which action triggered
+  /* Do not reclaim the symbols of the rule whose action triggered
      this YYABORT or YYACCEPT.  */
   YYPOPSTACK (yylen);
   YY_STACK_PRINT (yyss, yyssp);
