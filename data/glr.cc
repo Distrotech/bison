@@ -84,7 +84,8 @@ m4_ifdef([b4_lex_param], [, ]b4_lex_param)])
 # ------
 # Call yylex.
 m4_define([b4_lex],
-[b4_function_call([[yylex]b4_token_ctor_if([_wrapper])],
+[b4_function_call([b4_token_ctor_if(b4_namespace_ref[::yylex_wrapper],
+                                    [yylex])],
                   [int], b4_lex_formals)])
 
 
@@ -133,9 +134,10 @@ m4_defn([b4_initial_action])]))])[
     [[const char* msg], [msg]])[
 
 ]b4_token_ctor_if([
-// A wrapper around a symbol_type returning yylex, to an old style yylex.
-b4_function_declare([yylex_wrapper], [static int], b4_lex_formals)
-# define YYLEX ]b4_function_call([yylex_wrapper], [int], b4_lex_formals)[
+]b4_namespace_open[
+  // A wrapper around a symbol_type returning yylex, to an old style yylex.
+  b4_function_declare([yylex_wrapper], [static int], b4_lex_formals)
+]b4_namespace_close[
 ])
 ])
 
@@ -158,21 +160,21 @@ m4_append([b4_epilogue],
 [  yyparser.error (]b4_locations_if([[*yylocationp, ]])[msg);
 }
 
+]b4_namespace_open[
 ]b4_token_ctor_if([[
-// A wrapper around a symbol_type returning yylex, to an old style yylex.
+  // A wrapper around a symbol_type returning yylex, to an old style yylex.
 ]b4_function_define([yylex_wrapper],
                     [static int],
                     b4_lex_formals)[
-{
-  ]b4_namespace_ref::b4_parser_class_name[::symbol_type s = ]dnl
+  {
+    ]b4_namespace_ref::b4_parser_class_name[::symbol_type s = ]dnl
 b4_function_call([yylex], [], m4_unquote(b4_lex_param))[;
   ]b4_symbol_variant([[s.type]], [[(*yylvalp)]],
                      [build], [s.value])b4_locations_if([
-  std::swap (*yyllocp, s.location);])[
-  return s.token ();
-}]])[
+    std::swap (*yyllocp, s.location);])[
+    return s.token ();
+  }]])[
 
-]b4_namespace_open[
 ]dnl In this section, the parse params are the original parse_params.
 m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
 [  /// Build a parser object.
