@@ -705,6 +705,20 @@ struct yySemanticOption {
   /** Next sibling in chain of options.  To facilitate merging,
    *  options are chained in decreasing order by address.  */
   yySemanticOption* yynext;
+
+]b4_variant_if([[
+  yySemanticOption& operator= (yySemanticOption const& other)
+  {
+    yyisState = other.yyisState;
+    yyrule = other.yyrule;
+    yystate = other.yystate;
+    yyrawchar = other.yyrawchar;
+    ]b4_symbol_variant([yystate->yylrState],
+                       [yyval], [copy], [other.yyval])b4_locations_if([
+    yyloc = other.yyloc;])[
+    return *this;
+  }
+]])[
 };
 
 /** Type of the items in the GLR stack.  The yyisState field
@@ -1607,12 +1621,20 @@ yymergeOptionSets (yySemanticOption* yyy0, yySemanticOption* yyy1)
       else if (yys0->yyresolved)
         {
           yys1->yyresolved = yytrue;
-          yys1->yysemantics.yysval = yys0->yysemantics.yysval;
+          ]b4_variant_if(b4_symbol_variant([yys1->yylrState],
+                                           [yys1->yysemantics.yysval],
+                                           [copy],
+                                           [yys0->yysemantics.yysval]),
+                         [yys1->yysemantics.yysval = yys0->yysemantics.yysval;])[
         }
       else if (yys1->yyresolved)
         {
           yys0->yyresolved = yytrue;
-          yys0->yysemantics.yysval = yys1->yysemantics.yysval;
+          ]b4_variant_if(b4_symbol_variant([yys0->yylrState],
+                                           [yys0->yysemantics.yysval],
+                                           [copy],
+                                           [yys1->yysemantics.yysval]),
+                         [yys0->yysemantics.yysval = yys1->yysemantics.yysval;])[
         }
       else
         {
@@ -1952,7 +1974,7 @@ yyresolveValue (yyGLRState* yys, yyGLRStack* yystackp]b4_user_formals[)
       new (&yys->yysemantics.yysval) YYSTYPE; // FIXME: Useful?
       ]b4_symbol_variant([[yystos[yys->yylrState]]],
                          [[yys->yysemantics.yysval]],
-                         [build], [yysval])], [[
+                         [move], [yysval])], [[
       yys->yysemantics.yysval = yysval;]])[
     }
   else

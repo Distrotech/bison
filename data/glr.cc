@@ -194,7 +194,7 @@ m4_append([b4_epilogue],
     ]b4_namespace_ref::b4_parser_class_name[::symbol_type s = ]dnl
 b4_function_call([yylex], [], m4_unquote(b4_lex_param))[;
   ]b4_symbol_variant([[s.type]], [[(*yylvalp)]],
-                     [build], [s.value])b4_locations_if([
+                     [move], [s.value])b4_locations_if([
     std::swap (*yyllocp, s.location);])[
     return s.token ();
   }]])[
