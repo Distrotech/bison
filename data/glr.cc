@@ -43,6 +43,12 @@
 #   user must initialize the first positions (in particular the
 #   filename member).
 
+b4_token_ctor_if([b4_variant_if([],
+  [b4_fatal_at(b4_percent_define_get_loc(api.token.constructor),
+               [cannot use '%s' without '%s'],
+               [%define api.token.constructor],
+               [%define api.value.type variant]))])])
+
 # We require a pure interface.
 m4_define([b4_locations_flag], [1])
 # FIXME: this is possible with variants, not without.
@@ -141,10 +147,28 @@ m4_defn([b4_initial_action])]))])[
 ])
 ])
 
+#undef yynerrs
+#undef yychar
+#undef yylval]b4_locations_if([
+#undef yylloc])
+
+m4_if(b4_prefix, [yy], [],
+[[/* Substitute the variable and function names.  */
+#define yyparse ]b4_prefix[parse
+#define yylex   ]b4_prefix[lex
+#define yyerror ]b4_prefix[error
+#define yydebug ]b4_prefix[debug
+]]b4_pure_if([], [[
+#define yylval  ]b4_prefix[lval
+#define yychar  ]b4_prefix[char
+#define yynerrs ]b4_prefix[nerrs]b4_locations_if([[
+#define yylloc  ]b4_prefix[lloc]])]))
+
 # Hijack the epilogue to define implementations (yyerror, parser member
 # functions etc.).
 m4_append([b4_epilogue],
 [b4_syncline([@oline@], [@ofile@])[
+
 /*------------------.
 | Report an error.  |
 `------------------*/
@@ -274,6 +298,7 @@ m4_define([b4_shared_declarations],
 [m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
 b4_percent_code_get([[requires]])[
 
+#include <cstdlib>  // abort
 #include <stdexcept>
 ]b4_parse_assert_if([#include <cassert>])[
 #include <string>

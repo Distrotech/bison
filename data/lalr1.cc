@@ -146,7 +146,8 @@ b4_variant_if([m4_include(b4_pkgdatadir/[variant.hh])])
 m4_define([b4_shared_declarations],
 [b4_percent_code_get([[requires]])[
 ]b4_parse_assert_if([# include <cassert>])[
-# include <deque>
+# include <cstdlib>  // abort
+# include <vector>
 # include <iostream>
 # include <stdexcept>
 # include <string>]b4_defines_if([[
@@ -254,39 +255,43 @@ b4_location_define])])[
     /// \brief Display a symbol type, value and location.
     /// \param yyo    The output stream.
     /// \param yysym  The symbol.
-    template <typename Exact>
+    template <typename Base>
     void yy_print_ (std::ostream& yyo,
-                    const symbol_base_type<Exact>& yysym) const;
+                    const basic_symbol<Base>& yysym) const;
 #endif
 
     /// \brief Reclaim the memory associated to a symbol.
     /// \param yymsg     Why this token is reclaimed.
     ///                  If null, print nothing.
     /// \param s         The symbol.
-    template <typename Exact>
+    template <typename Base>
     inline void yy_destroy_ (const char* yymsg,
-                             symbol_base_type<Exact>& yysym) const;
+                             basic_symbol<Base>& yysym) const;
 
-    /// Element of the stack: a state and its attributes.
-    struct stack_symbol_type : symbol_base_type<stack_symbol_type>
+  private:
+    /// Type access provider for state based symbols.
+    struct by_state
     {
-      /// The parent class.
-      typedef symbol_base_type<stack_symbol_type> super_type;
-
       /// Default constructor.
-      inline stack_symbol_type ();
+      inline by_state ();
 
       /// Constructor.
-      inline stack_symbol_type (]b4_join([state_type s],
-                                         [const semantic_type& v],
-                                         b4_locations_if([const location_type& l]))[);
+      inline by_state (state_type s);
+
+      /// Copy constructor.
+      inline by_state (const by_state& other);
 
       /// The state.
       state_type state;
 
       /// The type (corresponding to \a state).
-      inline int type_get_ () const;
+      inline int type_get () const;
+
+      typedef state_type value_type;
     };
+
+    /// "Internal" symbol: element of the stack.
+    typedef basic_symbol<by_state> stack_symbol_type;
 
     /// Stack type.
     typedef stack<stack_symbol_type> stack_type;
@@ -520,33 +525,29 @@ m4_if(b4_prefix, [yy], [],
 
 ]b4_token_ctor_if([], [b4_public_types_define])[
 
-  // stack_symbol_type.
-  ]b4_parser_class_name[::stack_symbol_type::stack_symbol_type ()
-    : super_type ()
-    , state ()
-  {
-  }
+  // by_state.
+  ]b4_parser_class_name[::by_state::by_state ()
+    : state ()
+  {}
 
-  ]b4_parser_class_name[::stack_symbol_type::stack_symbol_type (]b4_join(
-                 [state_type s],
-                 [const semantic_type& v],
-                 b4_locations_if([const location_type& l]))[)
-    : super_type (v]b4_locations_if([, l])[)
-    , state (s)
-  {
-  }
+  ]b4_parser_class_name[::by_state::by_state (const by_state& other)
+    : state (other.state)
+  {}
+
+  ]b4_parser_class_name[::by_state::by_state (state_type s)
+    : state (s)
+  {}
 
   int
-  ]b4_parser_class_name[::stack_symbol_type::type_get_ () const
+  ]b4_parser_class_name[::by_state::type_get () const
   {
     return yystos_[state];
   }
 
-
-  template <typename Exact>
+  template <typename Base>
   void
   ]b4_parser_class_name[::yy_destroy_ (const char* yymsg,
-                                       symbol_base_type<Exact>& yysym) const
+                                       basic_symbol<Base>& yysym) const
   {
     if (yymsg)
       YY_SYMBOL_PRINT (yymsg, yysym);
@@ -565,10 +566,10 @@ m4_if(b4_prefix, [yy], [],
   }
 
 #if ]b4_api_PREFIX[DEBUG
-  template <typename Exact>
+  template <typename Base>
   void
   ]b4_parser_class_name[::yy_print_ (std::ostream& yyo,
-                                     const symbol_base_type<Exact>& yysym) const
+                                     const basic_symbol<Base>& yysym) const
   {
     std::ostream& yyoutput = yyo;
     YYUSE (yyoutput);
@@ -593,16 +594,14 @@ m4_if(b4_prefix, [yy], [],
     if (m)
       YY_SYMBOL_PRINT (m, sym);
 ]b4_variant_if(
-[[    yystack_.push (stack_symbol_type (]b4_join(
-                    [s],
-                    [semantic_type()],
-                    b4_locations_if([sym.location]))[));
-    ]b4_symbol_variant([[yystos_[s]]], [[yystack_[0].value]],
-                       [build], [sym.value])],
-[[    yystack_.push (stack_symbol_type (]b4_join(
-                      [s],
-                      [sym.value],
-                      b4_locations_if([sym.location]))[));]])[
+[[
+  stack_symbol_type ss (]b4_join([s],
+      [sym.value], b4_locations_if([sym.location]))[);
+  ]b4_symbol_variant([sym.type_get ()], [sym.value], [destroy], [])[;
+  yystack_.push (ss);
+]],
+[[    yystack_.push (stack_symbol_type (]b4_join([s],
+                         [sym.value], b4_locations_if([sym.location]))[));]])[
   }
 
   void
@@ -611,12 +610,12 @@ m4_if(b4_prefix, [yy], [],
     if (m)
       YY_SYMBOL_PRINT (m, s);
 ]b4_variant_if(
-[[    yystack_.push (stack_symbol_type (]b4_join(
-                       [s.state],
-                       [semantic_type()],
-                       b4_locations_if([s.location]))[));
-    ]b4_symbol_variant([[yystos_[s.state]]], [[yystack_[0].value]],
-                       [build], [s.value])],
+[[
+  stack_symbol_type ss (]b4_join([s.state],
+      [s.value], b4_locations_if([s.location]))[);
+  ]b4_symbol_variant([s.type_get ()], [s.value], [destroy], [])[;
+  yystack_.push (ss);
+]],
 [    yystack_.push (s);])[
   }
 
@@ -744,7 +743,7 @@ b4_dollar_popdef])[]dnl
         YYCDEBUG << "Reading a token: ";
         try
           {]b4_token_ctor_if([[
-            symbol_type yylookahead = ]b4_lex[;
+            symbol_type yylookahead (]b4_lex[);
             yyla.move (yylookahead);]], [[
             yyla.type = yytranslate_ (]b4_lex[);]])[
           }
