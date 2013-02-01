@@ -29,6 +29,52 @@ m4_define([b4_symbol_no_destructor_assert],
                         [b4_skeleton],
                         [b4_symbol_action_location([$1], [destructor])])])])
 b4_symbol_foreach([b4_symbol_no_destructor_assert])
+b4_percent_define_default([[api.push-pull]], [[pull]])dnl
+b4_percent_define_check_values([[[[api.push-pull]],
+                                 [[pull]], [[push]], [[both]]]])dnl
+b4_define_flag_if([pull]) m4_define([b4_pull_flag], [[1]])dnl
+b4_define_flag_if([push]) m4_define([b4_push_flag], [[1]])dnl
+m4_case(b4_percent_define_get([[api.push-pull]]),
+        [pull], [m4_define([b4_push_flag], [[0]])],
+        [push], [m4_define([b4_pull_flag], [[0]])])dnl
+
+# Handle BISON_USE_PUSH_FOR_PULL for the test suite.  So that push parsing
+# tests function as written, do not let BISON_USE_PUSH_FOR_PULL modify the
+# behavior of Bison at all when push parsing is already requested.
+b4_define_flag_if([use_push_for_pull])dnl
+b4_use_push_for_pull_if([
+  b4_push_if([m4_define([b4_use_push_for_pull_flag], [[0]])],
+             [m4_define([b4_push_flag], [[1]])])])
+
+# Define a macro to be true when api.push-pull has the value "both"
+m4_define([b4_both_if],[b4_push_if([b4_pull_if([$1],[$2])],[$2])])dnl
+
+# Define a macro to encapsulate the parse state variables.
+# This allows them to be defined either in parse() when doing
+# pull parsing, or as class instance variable when doing push parsing.
+m4_define([b4_define_state],[[
+    /// Lookahead and lookahead in internal form.
+    int yychar = yyempty_;
+    int yytoken = 0;
+
+    /* State.  */
+    int yyn = 0;
+    int yylen = 0;
+    int yystate = 0;
+    YYStack yystack = new YYStack ();
+    int label = YYNEWSTATE;
+
+    /* Error handling.  */
+    int yynerrs_ = 0;
+    ]b4_locations_if([/// The location where the error started.
+    b4_location_type yyerrloc = null;
+
+    /// b4_location_type of the lookahead.
+    b4_location_type yylloc = new b4_location_type (null, null);])[
+
+    /// Semantic value of the lookahead.
+    ]b4_yystype[ yylval = null;
+]])
 
 b4_output_begin([b4_parser_file_name])
 b4_copyright([Skeleton implementation for Bison LALR(1) parsers in Java],
@@ -344,6 +390,12 @@ b4_lexer_if([[
    * return failure (<tt>false</tt>).  */
   public static final int YYABORT = 1;
 
+]b4_push_if([
+  /**
+   * Returned by a Bison action in order to request a new token.
+   */
+  public static final int YYMORE = 4;])[
+
   /**
    * Returned by a Bison action in order to start error recovery without
    * printing an error message.  */
@@ -357,9 +409,12 @@ b4_lexer_if([[
   private static final int YYREDUCE = 6;
   private static final int YYERRLAB1 = 7;
   private static final int YYRETURN = 8;
+]b4_push_if([  private static final int YYGETTOKEN = 9;])[
 
   private int yyerrstatus_ = 0;
 
+]b4_push_if([dnl
+b4_define_state])[
   /**
    * Return whether error recovery is being done.  In this state, the parser
    * reads token until it reaches a known state, and then restarts normal
@@ -463,6 +518,7 @@ b4_lexer_if([[
               + (yyvaluep == null ? "(null)" : yyvaluep.toString ()) + ")");
   }
 
+]b4_push_if([],[
   /**
    * Parse input from the scanner that was specified at object construction
    * time.  Return whether the end of the input was reached successfully.
@@ -470,46 +526,53 @@ b4_lexer_if([[
    * @@return <tt>true</tt> if the parsing succeeds.  Note that this does not
    *          imply that there were no syntax errors.
    */
-  public boolean parse () ]b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])[
+   public boolean parse () b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])])[
+]b4_push_if([
+  /**
+   * Push Parse input from external lexer
+   *
+   * @@param yylextoken current token 
+   * @@param yylexval current lval
+b4_locations_if([   * @@param yylexloc current position])
+   *
+   * @@return <tt>YYACCEPT, YYABORT, YYMORE</tt>
+   */
+  public int push_parse (int yylextoken, b4_yystype yylexval[]b4_locations_if([, b4_location_type yylexloc]))
+      b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])])[
   {
-    /// Lookahead and lookahead in internal form.
-    int yychar = yyempty_;
-    int yytoken = 0;
-
-    /* State.  */
-    int yyn = 0;
-    int yylen = 0;
-    int yystate = 0;
-
-    YYStack yystack = new YYStack ();
-
-    /* Error handling.  */
-    int yynerrs_ = 0;
-    ]b4_locations_if([/// The location where the error started.
-    ]b4_location_type[ yyerrloc = null;
-
-    /// ]b4_location_type[ of the lookahead.
-    ]b4_location_type[ yylloc = new ]b4_location_type[ (null, null);
-
-    /// @@$.
-    ]b4_location_type[ yyloc;])
-
-    /// Semantic value of the lookahead.
-    b4_yystype[ yylval = null;
-
+    ]b4_locations_if([/// @@$.
+    b4_location_type yyloc;])[
+]b4_push_if([],[[
+]b4_define_state[
     yycdebug ("Starting parse\n");
     yyerrstatus_ = 0;
 
+    /* Initialize the stack.  */
+    yystack.push (yystate, yylval ]b4_locations_if([, yylloc])[);
 ]m4_ifdef([b4_initial_action], [
 b4_dollar_pushdef([yylval], [], [yylloc])dnl
     /* User initialization code.  */
     b4_user_initial_action
-b4_dollar_popdef])[]dnl
+b4_dollar_popdef[]dnl
+])[
+]])[
+]b4_push_if([[
+    boolean push_token_consumed = true;
 
-  [  /* Initialize the stack.  */
-    yystack.push (yystate, yylval]b4_locations_if([, yylloc])[);
-
-    int label = YYNEWSTATE;
+    if (!push_parse_initialized)
+      {
+        push_parse_initialize ();
+        yycdebug ("Starting parse\n");
+        yyerrstatus_ = 0;
+      } else
+        label = YYGETTOKEN;
+]m4_ifdef([b4_initial_action], [
+b4_dollar_pushdef([yylval], [], [yylloc])dnl
+    /* User initialization code.  */
+    b4_user_initial_action
+b4_dollar_popdef[]dnl
+])[
+]])[
     for (;;)
       switch (label)
       {
@@ -522,7 +585,7 @@ b4_dollar_popdef])[]dnl
 
         /* Accept?  */
         if (yystate == yyfinal_)
-          return true;
+         ]b4_push_if([{label = YYACCEPT; break;}],[return true;])[
 
         /* Take a decision.  First try without lookahead.  */
         yyn = yypact_[yystate];
@@ -531,16 +594,28 @@ b4_dollar_popdef])[]dnl
             label = YYDEFAULT;
             break;
           }
+]b4_push_if([        /* Fall Through */
 
+      case YYGETTOKEN:])[
         /* Read a lookahead token.  */
         if (yychar == yyempty_)
           {
+]b4_push_if([[
+            if (!push_token_consumed)
+              return YYMORE;
             yycdebug ("Reading a token: ");
-            yychar = yylexer.yylex ();]
-            b4_locations_if([[
-            yylloc = new ]b4_location_type[(yylexer.getStartPos (),
-                            yylexer.getEndPos ());]])
-            yylval = yylexer.getLVal ();[
+            yychar = yylextoken;
+            yylval = yylexval;
+            ]b4_locations_if([yylloc = yylexloc;])[
+            push_token_consumed = false;]])[
+]b4_push_if([],[[
+            yycdebug ("Reading a token: ");
+            yychar = yylexer.yylex ();
+            yylval = yylexer.getLVal ();
+            ]b4_locations_if([dnl
+            yylloc = new b4_location_type (yylexer.getStartPos (),
+                            yylexer.getEndPos ());])[
+]])[
           }
 
         /* Convert token to internal form.  */
@@ -637,10 +712,10 @@ b4_dollar_popdef])[]dnl
           {
           /* Return failure if at end of input.  */
           if (yychar == Lexer.EOF)
-            return false;
+            ]b4_push_if([{label = YYABORT; break;}],[return false;])[
           }
         else
-              yychar = yyempty_;
+            yychar = yyempty_;
           }
 
         /* Else will try to reuse lookahead token after shifting the error
@@ -684,7 +759,7 @@ b4_dollar_popdef])[]dnl
 
             /* Pop the current state because it cannot handle the error token.  */
             if (yystack.height == 0)
-              return false;
+              ]b4_push_if([{label = YYABORT; break;}],[return false;])[
 
             ]b4_locations_if([yyerrloc = yystack.locationAt (0);])[
             yystack.pop ();
@@ -692,6 +767,10 @@ b4_dollar_popdef])[]dnl
             if (yydebug > 0)
               yystack.print (yyDebugStream);
           }
+
+        if (label == YYABORT)
+            /* leave the switch */
+            break;
 
         ]b4_locations_if([
         /* Muck with the stack to setup for yylloc.  */
@@ -711,13 +790,88 @@ b4_dollar_popdef])[]dnl
 
         /* Accept.  */
       case YYACCEPT:
-        return true;
+        ]b4_push_if([push_parse_initialized = false; return YYACCEPT;],
+                    [return true;])[
 
         /* Abort.  */
       case YYABORT:
-        return false;
+        ]b4_push_if([push_parse_initialized = false; return YYABORT;],
+                    [return false;])[
       }
+}
+]b4_push_if([[
+  boolean push_parse_initialized = false;
+
+  public void push_parse_initialize()
+  {
+    // (Re-)Initialize the state
+    /// Lookahead and lookahead in internal form.
+    this.yychar = yyempty_;
+    this.yytoken = 0;
+
+    /* State.  */
+    this.yyn = 0;
+    this.yylen = 0;
+    this.yystate = 0;
+    this.yystack = new YYStack ();
+    this.label = YYNEWSTATE;
+
+    /* Error handling.  */
+    this.yynerrs_ = 0;
+    ]b4_locations_if([/// The location where the error started.
+    this.yyerrloc = null;
+    this.yylloc = new b4_location_type (null, null);])[
+
+    /// Semantic value of the lookahead.
+    this.yylval = null;
+
+    yystack.push (this.yystate, this.yylval]b4_locations_if([, this.yylloc])[);
+    push_parse_initialized = true;
   }
+]b4_locations_if([
+  /**
+   * Push Parse input from external lexer
+   *
+   * @@param yylextoken current token 
+   * @@param yylexval current lval
+   * @@param yyylexpos current position
+   *
+   * @@return <tt>YYACCEPT, YYABORT, YYMORE</tt>
+   */
+  public int push_parse (int yylextoken, b4_yystype yylexval, b4_position_type yylexpos)
+      b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])
+  {
+    return push_parse (yylextoken, yylexval, new b4_location_type (yylexpos));
+  }
+])[]])
+
+b4_both_if([[
+  /**
+   * Parse input from the scanner that was specified at object construction
+   * time.  Return whether the end of the input was reached successfully.
+   * This version of parse () is defined only when api.push-push=both
+   *
+   * @@return <tt>true</tt> if the parsing succeeds.  Note that this does not
+   *          imply that there were no syntax errors.
+   */
+   public boolean parse () ]b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])[
+   {
+      if (yylexer == null)
+        throw new NullPointerException("Null Lexer");
+      int status;
+      do {
+        int token = yylexer.yylex();
+        ]b4_yystype[ lval = yylexer.getLVal();    
+]b4_locations_if([dnl
+        b4_location_type yyloc = new b4_location_type (yylexer.getStartPos (),
+                                              yylexer.getEndPos ());])[
+        this.yyerrstatus_ = 0;
+        ]b4_locations_if([status = push_parse(token,lval,yyloc);],[
+        status = push_parse(token,lval);])[
+      } while (status == YYMORE);
+      return (status == YYACCEPT);
+  }
+]])[
 
   // Generate an error message.
   private String yysyntax_error (int yystate, int tok)
@@ -824,6 +978,7 @@ b4_dollar_popdef])[]dnl
 
   ]b4_integral_parser_table_define([rline], [b4_rline],
   [[YYRLINE[YYN] -- Source line where rule number YYN was defined.]])[
+
 
   // Report on the debug stream that the rule yyrule is going to be reduced.
   private void yy_reduce_print (int yyrule, YYStack yystack)

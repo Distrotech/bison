@@ -221,6 +221,9 @@ GNU Bison NEWS
   is possible to add code to the parser's constructors using "%code init"
   and "%define init_throws".
 
+  Contributed by Dennis Heimbigner
+  The java skeleton, data/lalr1.java, now supports push parsing.
+
 ** C++ skeletons improvements
 
 *** The parser header is no longer mandatory (lalr1.cc, glr.cc)
