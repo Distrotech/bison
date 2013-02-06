@@ -531,7 +531,7 @@ b4_define_state])[
   /**
    * Push Parse input from external lexer
    *
-   * @@param yylextoken current token 
+   * @@param yylextoken current token
    * @@param yylexval current lval
 b4_locations_if([   * @@param yylexloc current position])
    *
@@ -832,7 +832,7 @@ b4_dollar_popdef[]dnl
   /**
    * Push Parse input from external lexer
    *
-   * @@param yylextoken current token 
+   * @@param yylextoken current token
    * @@param yylexval current lval
    * @@param yyylexpos current position
    *
@@ -861,7 +861,7 @@ b4_both_if([[
       int status;
       do {
         int token = yylexer.yylex();
-        ]b4_yystype[ lval = yylexer.getLVal();    
+        ]b4_yystype[ lval = yylexer.getLVal();
 ]b4_locations_if([dnl
         b4_location_type yyloc = new b4_location_type (yylexer.getStartPos (),
                                               yylexer.getEndPos ());])[

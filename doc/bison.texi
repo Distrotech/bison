@@ -11666,7 +11666,7 @@ enabled).
 @deftypemethodx {YYParser} {void} push_parse ({int} @var{token}, {Object} @var{yylval}, {Position} @var{yypos})
 @end deftypemethod
 
-The primary difference with respect to 
+The primary difference with respect to
 a pull parser is that the parser method
 @code{push_parse} is invoked repeatedly to parse each token.
 This function is available if either the
