@@ -1,6 +1,6 @@
 # Checking Java Push Parsing.                            -*- Autotest -*-
 
-# Copyright (C) 2007, 2009-2013 Free Software Foundation, Inc.
+# Copyright (C) 2013 Free Software Foundation, Inc.
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,19 +21,15 @@
 
 ##################################################
 # Provide a way to generate data with and without push parsing
-# so we can capture the output for comparison (except test 1).
-# Use both rather than push so we can also set it to pull to
-# get the experr data.
+# so  it is possible to capture the output for comparison
+# (except the "trivial" tests).
+# Use "both" rather than "push" so we can also set it to "pull" to
+# get the "experr" data.
 
-m4_define([PUSHPULLFLAGS],[-Dapi.push-pull=both])
+m4_define([PUSHPULLFLAG],[-Dapi.push-pull=both])
 
-# Bring in the grep tester from java.at
-# AT_CHECK_JAVA_GREP([PARSERFILE], [LINE], [COUNT=1])
-# -------------------------------------
-# Check that PARSERFILEcontains exactly COUNT lines matching ^LINE$
-# with grep.
-
-# Modify to ignore status so we can test for zero matching lines
+# Modify the grep tester from java.at
+# to ignore status so we can test for zero matching lines
 m4_define([AT_CHECK_JAVA_GREP],
         [AT_CHECK([grep -c '^$2$' $1], [ignore], [m4_default([$3], [1])
 ])
@@ -43,8 +39,10 @@ m4_define([AT_CHECK_JAVA_GREP],
 
 AT_BANNER([[Java Push Parsing Tests]])
 
-# Define a single copy of the trivial parser
-m4_define([AT_TRIVIAL_PARSER],[
+# Define a single copy of the trivial parser grammar.
+# This is missing main(), so two versions
+# are instantiated with different main() procedures.
+m4_define([AT_TRIVIAL_GRAMMAR],[
 %define parser_class_name "YYParser"
 %error-verbose
 
@@ -58,59 +56,105 @@ import java.util.*;
 start: 'a' 'b' 'c' ;
 
 %%
+])
 
-public class Main
-{
-
+# Define comon code across to be includede in
+# class Main for the trivial parser tests.
+m4_define([AT_TRIVIAL_COMMON],[
   static class YYerror implements YYParser.Lexer
   {
     public Object getLVal() {return null;}
-    public int yylex () throws java.io.IOException {return 0;}
-    public void yyerror (String msg)
-    {
-        System.err.println(msg);
-    }
+    public int yylex () throws java.io.IOException { return 0; }
+    public void yyerror (String msg) { System.err.println(msg); }
   }
 
+  static YYParser parser = null;
+  static YYerror yyerror = null;
+  static int teststate = -1;
 
-  static public void main (String[[]] argv) throws IOException
+  static void setup()
+    throws IOException
   {
-      YYerror yyerror = new YYerror();
-      YYParser parser;
-      int state = -1;
-
+      yyerror = new YYerror();
       parser = new YYParser(yyerror);
       parser.setDebugLevel(1);
-
-      state = parser.push_parse('a', null);
-      check(state,YYParser.YYMORE,"push_parse('a', null)");
-
-      parser = new YYParser(yyerror);
-
-      state = parser.push_parse('a', null);
-      check(state,YYParser.YYMORE,"push_parse('a', null)");
-      state = parser.push_parse('b', null);
-      check(state,YYParser.YYMORE,"push_parse('b', null)");
-      state = parser.push_parse('c', null);
-      check(state,YYParser.YYMORE,"push_parse('c', null)");
-      state = parser.push_parse('\0', null);
-      check(state,YYParser.YYACCEPT,"push_parse('\\0', null)");
-
-      /* Reuse the parser instance and cause a failure */
-      state = parser.push_parse('b', null);
-      check(state,YYParser.YYABORT,"push_parse('b', null)");
-      System.exit(0);
+      teststate = -1;
   }
 
-  static String[[]] statename = new String[[]]{"YYACCEPT","YYABORT","YYERROR","UNKNOWN","YYMORE"};
+  static String[[]] teststatename
+    = new String[[]]{"YYACCEPT","YYABORT","YYERROR","UNKNOWN","YYMORE"};
 
-  static void check(int state, int expected, String msg)
+  static void check(int teststate, int expected, String msg)
   {
-    System.err.println("state="+statename[[state]]+"; expected="+statename[[expected]]);
-    if (state == expected)
+    System.err.println("teststate="+teststatename[[teststate]]
+                       +"; expected="+teststatename[[expected]]);
+    if (teststate == expected)
 	return;
     System.err.println("unexpected state: "+msg);
     System.exit(1);
+  }
+])
+
+m4_define([AT_TRIVIAL_PARSER],[
+  AT_TRIVIAL_GRAMMAR
+
+  public class Main
+  {
+
+  AT_TRIVIAL_COMMON
+
+  static public void main (String[[]] argv)
+    throws IOException
+  {
+      setup();
+
+      teststate = parser.push_parse('a', null);
+      check(teststate,YYParser.YYMORE,"push_parse('a', null)");
+
+      setup();
+
+      teststate = parser.push_parse('a', null);
+      check(teststate,YYParser.YYMORE,"push_parse('a', null)");
+      teststate = parser.push_parse('b', null);
+      check(teststate,YYParser.YYMORE,"push_parse('b', null)");
+      teststate = parser.push_parse('c', null);
+      check(teststate,YYParser.YYMORE,"push_parse('c', null)");
+      teststate = parser.push_parse('\0', null);
+      check(teststate,YYParser.YYACCEPT,"push_parse('\\0', null)");
+
+      /* Reuse the parser instance and cause a failure */
+      teststate = parser.push_parse('b', null);
+      check(teststate,YYParser.YYABORT,"push_parse('b', null)");
+
+      System.exit(0);
+  }
+
+}
+])
+
+m4_define([AT_TRIVIAL_PARSER_INITIAL_ACTION],[
+  AT_TRIVIAL_GRAMMAR
+
+  public class Main
+  {
+
+  AT_TRIVIAL_COMMON
+
+  static public void main (String[[]] argv)
+    throws IOException
+  {
+      setup();
+
+      teststate = parser.push_parse('a', null);
+      check(teststate,YYParser.YYMORE,"push_parse('a', null)");
+      teststate = parser.push_parse('b', null);
+      check(teststate,YYParser.YYMORE,"push_parse('b', null)");
+      teststate = parser.push_parse('c', null);
+      check(teststate,YYParser.YYMORE,"push_parse('c', null)");
+      teststate = parser.push_parse('\0', null);
+      check(teststate,YYParser.YYACCEPT,"push_parse('\\0', null)");
+
+      System.exit(0);
   }
 
 }
@@ -123,16 +167,31 @@ AT_DATA([[input.y]],[[%language "Java"
 ]])
 AT_BISON_OPTION_POPDEFS
 
-# Verify that the proper procedure(s) are generated for each case
+# Verify that the proper procedure(s) are generated for each case.
 AT_BISON_CHECK([[-Dapi.push-pull=pull -o Main.java input.y]])
-AT_CHECK_JAVA_GREP([[Main.java]],[[.*public boolean parse ().*]],[1])
-AT_CHECK_JAVA_GREP([[Main.java]],[[.*public int push_parse (int yylextoken, Object yylexval).*]],[0])
+AT_CHECK_JAVA_GREP([[Main.java]],
+                   [[.*public boolean parse ().*]],
+                   [1])
+AT_CHECK_JAVA_GREP(
+        [[Main.java]],
+        [[.*public int push_parse (int yylextoken, Object yylexval).*]],
+        [0])
 AT_BISON_CHECK([[-Dapi.push-pull=both -o Main.java input.y]])
-AT_CHECK_JAVA_GREP([[Main.java]],[[.*public boolean parse ().*]],[1])
-AT_CHECK_JAVA_GREP([[Main.java]],[[.*public int push_parse (int yylextoken, Object yylexval).*]],[1])
+AT_CHECK_JAVA_GREP([[Main.java]],
+                   [[.*public boolean parse ().*]],
+                   [1])
+AT_CHECK_JAVA_GREP(
+        [[Main.java]],
+        [[.*public int push_parse (int yylextoken, Object yylexval).*]],
+        [1])
 AT_BISON_CHECK([[-Dapi.push-pull=push -o Main.java input.y]])
-AT_CHECK_JAVA_GREP([[Main.java]],[[.*public boolean parse ().*]],[0])
-AT_CHECK_JAVA_GREP([[Main.java]],[[.*public int push_parse (int yylextoken, Object yylexval).*]],[1])
+AT_CHECK_JAVA_GREP([[Main.java]],
+                   [[.*public boolean parse ().*]],
+                   [0])
+AT_CHECK_JAVA_GREP(
+        [[Main.java]],
+        [[.*public int push_parse (int yylextoken, Object yylexval).*]],
+        [1])
 
 AT_JAVA_COMPILE([[Main.java]])
 AT_JAVA_PARSER_CHECK([Main], 0, [], [stderr-nolog])
@@ -142,19 +201,43 @@ AT_SETUP([Trivial Push Parser with %initial-action])
 AT_BISON_OPTION_PUSHDEFS
 AT_DATA([[input.y]],[[%language "Java"
 %initial-action {
-final int INITIAL_ACTION_DECLARED = 1;
+System.err.println("Initial action invoked");
 }
-]AT_TRIVIAL_PARSER[
+]AT_TRIVIAL_PARSER_INITIAL_ACTION[
 ]])
 AT_BISON_OPTION_POPDEFS
 AT_BISON_CHECK([[-Dapi.push-pull=push -o Main.java input.y]])
-AT_CHECK_JAVA_GREP([[Main.java]],[[final int INITIAL_ACTION_DECLARED = 1;]])
+AT_CHECK_JAVA_GREP([[Main.java]],
+  [[System.err.println("Initial action invoked");]])
 AT_JAVA_COMPILE([[Main.java]])
 AT_JAVA_PARSER_CHECK([Main], 0, [], [stderr-nolog])
+# Verify that initial action is called exactly once.
+AT_CHECK_JAVA_GREP(
+        [[stderr]],
+        [[Initial action invoked]],
+        [1])
 AT_CLEANUP
 
-# Define a single copy of the Calculator
-m4_define([AT_CALC_BODY1],[
+# Define a single copy of the Calculator grammar.
+m4_define([AT_CALC_BODY],[
+%code imports {
+  import java.io.*;
+}
+
+%code {
+  static StringReader
+  getinput(String filename) throws IOException
+  {
+    StringBuilder buf = new StringBuilder();
+    FileReader file = new FileReader(filename);
+    int c;
+    while ((c=file.read()) > 0)
+      buf.append((char)c);
+    file.close();
+    return new StringReader(buf.toString());
+  }
+}
+
 /* Bison Declarations */
 %token <Integer> NUM "number"
 %type  <Integer> exp
@@ -175,6 +258,7 @@ input:
 line:
   '\n'
 | exp '\n'
+	{System.out.println("total = "+$[]1);}
 | error '\n'
 ;
 
@@ -185,58 +269,63 @@ exp:
     if ($[]1.intValue() != $[]3.intValue())
       yyerror (]AT_LOCATION_IF([[@$,]])[ "calc: error: " + $[]1 + " != " + $[]3);
   }
-| exp '+' exp        { $[]$ = new Integer ($[]1.intValue () + $[]3.intValue ());  }
-| exp '-' exp        { $[]$ = new Integer ($[]1.intValue () - $[]3.intValue ());  }
-| exp '*' exp        { $[]$ = new Integer ($[]1.intValue () * $[]3.intValue ());  }
-| exp '/' exp        { $[]$ = new Integer ($[]1.intValue () / $[]3.intValue ());  }
-| '-' exp  %prec NEG { $[]$ = new Integer (-$[]2.intValue ());                  }
-| exp '^' exp        { $[]$ = new Integer ((int)
-                                         Math.pow ($[]1.intValue (),
-                                                   $[]3.intValue ()));        }
-| '(' exp ')'        { $[]$ = $[]2;                                             }
+| exp '+' exp
+    { $[]$ = new Integer ($[]1.intValue () + $[]3.intValue ());  }
+| exp '-' exp
+    { $[]$ = new Integer ($[]1.intValue () - $[]3.intValue ());  }
+| exp '*' exp
+    { $[]$ = new Integer ($[]1.intValue () * $[]3.intValue ());  }
+| exp '/' exp
+    { $[]$ = new Integer ($[]1.intValue () / $[]3.intValue ());  }
+| '-' exp  %prec NEG
+    { $[]$ = new Integer (-$[]2.intValue ());                    }
+| exp '^' exp
+    { $[]$ = new Integer ((int)Math.pow ($[]1.intValue (),
+                                         $[]3.intValue ()));     }
+| '(' exp ')'        { $[]$ = $[]2;}
 | '(' error ')'      { $[]$ = new Integer (1111);}
 | '!'                { $[]$ = new Integer (0); return YYERROR;}
 | '-' error          { $[]$ = new Integer (0); return YYERROR;}
 ;
 ])
 
+# Test that the states transitioned by the push parser are the
+# same as for the pull parser.  This test is assumed to work
+# if it produces the same partial trace of stack states as is
+# produced when using pull parsing.  The output is verbose,
+# but seems essential for verifying push parsing.
+
 AT_SETUP([Calc parser with api.push-pull both])
 AT_BISON_OPTION_PUSHDEFS
+
+# Define the calculator input.
+# Warning: if you changes the input file
+# then the locations test file position numbers
+# may be incorrect and you will have
+# to modify that file as well.
+
+AT_DATA([input],[[1 + 2 * 3 = 7
+1 + 2 * -3 = -5
+
+-1^2 = -1
+(-1)^2 = 1
+
+---1 = -1
+
+1 - 2 - 3 = -4
+1 - (2 - 3) = 2
+
+2^2^3 = 256
+(2^2)^3 = 64
+]])
+
+# Compose pieces to build the actual .y file.
 AT_DATA([Calc.y],[[/* Infix notation calculator--calc */
 %language "Java"
 %name-prefix "Calc"
 %define parser_class_name "Calc"
 
-%code imports {
-  import java.io.*;
-}
-
 %code {
-
-  public static void main (String[] argv)
-        throws IOException
-  {
-    StringReader reader = getinput(argv[0]);
-    UserLexer lexer = new UserLexer(reader);
-    Calc calc = new Calc(lexer);
-    calc.setDebugLevel(1);
-    calc.parse();
-  }
-
-
-  static StringReader
-  getinput(String filename) throws IOException
-  {
-    StringBuilder buf = new StringBuilder();
-    FileReader file = new FileReader(filename);
-    int c;
-    while((c=file.read()) > 0) {
-      buf.append((char)c);
-    }
-    file.close();
-    return new StringReader(buf.toString());
-  }
-
 static class UserLexer implements Calc.Lexer
 {
   StreamTokenizer st;
@@ -255,1274 +344,252 @@ static class UserLexer implements Calc.Lexer
 
   Integer yylval;
 
-  public Object getLVal() {
-    return yylval;
-  }
+  public Object getLVal() { return yylval; }
 
-  public void yyerror(String msg)
+  public void yyerror(String msg) { System.err.println(msg); }
+
+  public int yylex () throws IOException
   {
-    System.err.println(msg);
-  }
-
-  public int yylex () throws IOException {
-    int ttype = st.nextToken ();
-    if (ttype == st.TT_EOF)
-      return EOF;
-
-    else if (ttype == st.TT_EOL)
-      {
-        return (int) '\n';
-      }
-
-    else if (ttype == st.TT_WORD)
-      {
+    switch (st.nextToken()) {
+    case StreamTokenizer.TT_EOF: return EOF;
+    case StreamTokenizer.TT_EOL: return (int) '\n';
+    case StreamTokenizer.TT_WORD:
         yylval = new Integer (st.sval);
         return NUM;
-      }
-
-    else
-      return st.ttype;
+    default: return st.ttype;
+    }
   }
 }
 
 }
 
-]AT_CALC_BODY1[
+%code {
+public static void main (String[] argv)
+      throws IOException
+{
+    StringReader reader = getinput(argv[0]);
+    UserLexer lexer = new UserLexer(reader);
+    Calc calc = new Calc(lexer);
+    calc.setDebugLevel(1);
+    calc.parse();
+}//main
+
+}
+
+]AT_CALC_BODY[
 
 ]])
 
-AT_DATA([[input]],[[1 + 2 * 3 = 7
-1 + 2 * -3 = -5
-
--1^2 = -1
-(-1)^2 = 1
-
----1 = -1
-
-1 - 2 - 3 = -4
-1 - (2 - 3) = 2
-
-2^2^3 = 256
-(2^2)^3 = 64
-]])
-
-AT_DATA([[expout]],[[Starting parse
-
-Entering state 0
-
-Stack now 0
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
+# This data was captured from running a pull parser.
+AT_DATA([[expout]],[[Stack now 0
 Stack now 0 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
 Stack now 0 9
-Reading a token: @&t@
-Next token is token '+' (1)
-Shifting token '+' (1)
-Entering state 19
-
 Stack now 0 9 19
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 9 19 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 28
-
 Stack now 0 9 19 28
-Reading a token: @&t@
-Next token is token '*' (2)
-Shifting token '*' (2)
-Entering state 20
-
 Stack now 0 9 19 28 20
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
 Stack now 0 9 19 28 20 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 29
-
 Stack now 0 9 19 28 20 29
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 10 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '*' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (6)
-Entering state 28
-
 Stack now 0 9 19 28
-Next token is token '=' (3)
-Reducing stack by rule 8 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '+' (1)
-   $3 = nterm exp (6)
--> $$ = nterm exp (7)
-Entering state 9
-
 Stack now 0 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
 Stack now 0 9 17
-Reading a token: @&t@
-Next token is token "number" (7)
-Shifting token "number" (7)
-Entering state 2
-
 Stack now 0 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (7)
--> $$ = nterm exp (7)
-Entering state 26
-
 Stack now 0 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (7)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (7)
-   $2 = token '=' (3)
-   $3 = nterm exp (7)
--> $$ = nterm exp (7)
-Entering state 9
-
 Stack now 0 9
-Next token is token '\n' (7)
-Shifting token '\n' (7)
-Entering state 23
-
 Stack now 0 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (7)
-   $2 = token '\n' (7)
--> $$ = nterm line (7)
-Entering state 8
-
 Stack now 0 8
-Reducing stack by rule 1 , @&t@
-   $1 = nterm line (7)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
 Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '+' (1)
-Shifting token '+' (1)
-Entering state 19
-
 Stack now 0 7 9 19
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 9 19 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 28
-
 Stack now 0 7 9 19 28
-Reading a token: @&t@
-Next token is token '*' (2)
-Shifting token '*' (2)
-Entering state 20
-
 Stack now 0 7 9 19 28 20
-Reading a token: @&t@
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 3
-
 Stack now 0 7 9 19 28 20 3
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
 Stack now 0 7 9 19 28 20 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 12
-
 Stack now 0 7 9 19 28 20 3 12
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (2)
-   $2 = nterm exp (3)
--> $$ = nterm exp (-3)
-Entering state 29
-
 Stack now 0 7 9 19 28 20 29
-Next token is token '=' (3)
-Reducing stack by rule 10 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '*' (2)
-   $3 = nterm exp (-3)
--> $$ = nterm exp (-6)
-Entering state 28
-
 Stack now 0 7 9 19 28
-Next token is token '=' (3)
-Reducing stack by rule 8 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '+' (1)
-   $3 = nterm exp (-6)
--> $$ = nterm exp (-5)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (3)
-Shifting token '-' (3)
-Entering state 3
-
 Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (5)
-Shifting token "number" (5)
-Entering state 2
-
 Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (5)
--> $$ = nterm exp (5)
-Entering state 12
-
 Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (5)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (3)
-   $2 = nterm exp (5)
--> $$ = nterm exp (-5)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Next token is token '\n' (5)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-5)
-   $2 = token '=' (3)
-   $3 = nterm exp (-5)
--> $$ = nterm exp (-5)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (5)
-Shifting token '\n' (5)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-5)
-   $2 = token '\n' (5)
--> $$ = nterm line (-5)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-5)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (5)
-Shifting token '\n' (5)
-Entering state 4
-
 Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (5)
--> $$ = nterm line (5)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (5)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '-' (5)
-Shifting token '-' (5)
-Entering state 3
-
 Stack now 0 7 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
 Stack now 0 7 3 12
-Reading a token: @&t@
-Next token is token '^' (1)
-Shifting token '^' (1)
-Entering state 22
-
 Stack now 0 7 3 12 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 3 12 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
 Stack now 0 7 3 12 22 31
-Reading a token: @&t@
-Next token is token '=' (2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '^' (1)
-   $3 = nterm exp (2)
--> $$ = nterm exp (1)
-Entering state 12
-
 Stack now 0 7 3 12
-Next token is token '=' (2)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (5)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (2)
-Shifting token '=' (2)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 3
-
 Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
 Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (2)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Next token is token '\n' (1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '=' (2)
-   $3 = nterm exp (-1)
--> $$ = nterm exp (-1)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '\n' (1)
--> $$ = nterm line (-1)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-1)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '(' (1)
-Shifting token '(' (1)
-Entering state 5
-
 Stack now 0 7 5
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
 Stack now 0 7 5 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 5 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
 Stack now 0 7 5 3 12
-Reading a token: @&t@
-Next token is token ')' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 14
-
 Stack now 0 7 5 14
-Next token is token ')' (1)
-Shifting token ')' (1)
-Entering state 25
-
 Stack now 0 7 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (1)
-   $2 = nterm exp (-1)
-   $3 = token ')' (1)
--> $$ = nterm exp (-1)
-Entering state 9
-
 Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '^' (1)
-Shifting token '^' (1)
-Entering state 22
-
 Stack now 0 7 9 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
 Stack now 0 7 9 22 31
-Reading a token: @&t@
-Next token is token '=' (2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '^' (1)
-   $3 = nterm exp (2)
--> $$ = nterm exp (1)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (2)
-Shifting token '=' (2)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '=' (2)
-   $3 = nterm exp (1)
--> $$ = nterm exp (1)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '\n' (1)
--> $$ = nterm line (1)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (1)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 4
-
 Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (1)
--> $$ = nterm line (1)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (1)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
 Stack now 0 7 3
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
 Stack now 0 7 3 3
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
 Stack now 0 7 3 3 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 3 3 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
 Stack now 0 7 3 3 3 12
-Reading a token: @&t@
-Next token is token '=' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 12
-
 Stack now 0 7 3 3 12
-Next token is token '=' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (-1)
--> $$ = nterm exp (1)
-Entering state 12
-
 Stack now 0 7 3 12
-Next token is token '=' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (1)
-Shifting token '=' (1)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
 Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
 Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Next token is token '\n' (1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '=' (1)
-   $3 = nterm exp (-1)
--> $$ = nterm exp (-1)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '\n' (1)
--> $$ = nterm line (-1)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-1)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 4
-
 Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (1)
--> $$ = nterm line (1)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (1)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
 Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 18
-
 Stack now 0 7 9 18
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 9 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 27
-
 Stack now 0 7 9 18 27
-Reading a token: @&t@
-Next token is token '-' (2)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '-' (1)
-   $3 = nterm exp (2)
--> $$ = nterm exp (-1)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 18
-
 Stack now 0 7 9 18
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
 Stack now 0 7 9 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 27
-
 Stack now 0 7 9 18 27
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '-' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (-4)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (3)
-Shifting token '-' (3)
-Entering state 3
-
 Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (4)
-Shifting token "number" (4)
-Entering state 2
-
 Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (4)
--> $$ = nterm exp (4)
-Entering state 12
-
 Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (4)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (3)
-   $2 = nterm exp (4)
--> $$ = nterm exp (-4)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Next token is token '\n' (4)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-4)
-   $2 = token '=' (3)
-   $3 = nterm exp (-4)
--> $$ = nterm exp (-4)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (4)
-Shifting token '\n' (4)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-4)
-   $2 = token '\n' (4)
--> $$ = nterm line (-4)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-4)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
 Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
 Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 18
-
 Stack now 0 7 9 18
-Reading a token: @&t@
-Next token is token '(' (1)
-Shifting token '(' (1)
-Entering state 5
-
 Stack now 0 7 9 18 5
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 9 18 5 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 14
-
 Stack now 0 7 9 18 5 14
-Reading a token: @&t@
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 18
-
 Stack now 0 7 9 18 5 14 18
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
 Stack now 0 7 9 18 5 14 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 27
-
 Stack now 0 7 9 18 5 14 18 27
-Reading a token: @&t@
-Next token is token ')' (3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '-' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (-1)
-Entering state 14
-
 Stack now 0 7 9 18 5 14
-Next token is token ')' (3)
-Shifting token ')' (3)
-Entering state 25
-
 Stack now 0 7 9 18 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (1)
-   $2 = nterm exp (-1)
-   $3 = token ')' (3)
--> $$ = nterm exp (-1)
-Entering state 27
-
 Stack now 0 7 9 18 27
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '-' (1)
-   $3 = nterm exp (-1)
--> $$ = nterm exp (2)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (2)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '=' (3)
-   $3 = nterm exp (2)
--> $$ = nterm exp (2)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (2)
-Shifting token '\n' (2)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '\n' (2)
--> $$ = nterm line (2)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (2)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (2)
-Shifting token '\n' (2)
-Entering state 4
-
 Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (2)
--> $$ = nterm line (2)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (2)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 9
-
 Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
 Stack now 0 7 9 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
 Stack now 0 7 9 22 31
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
 Stack now 0 7 9 22 31 22
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
 Stack now 0 7 9 22 31 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 31
-
 Stack now 0 7 9 22 31 22 31
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '^' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (8)
-Entering state 31
-
 Stack now 0 7 9 22 31
-Next token is token '=' (3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '^' (2)
-   $3 = nterm exp (8)
--> $$ = nterm exp (256)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (256)
-Shifting token "number" (256)
-Entering state 2
-
 Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (256)
--> $$ = nterm exp (256)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (256)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (256)
-   $2 = token '=' (3)
-   $3 = nterm exp (256)
--> $$ = nterm exp (256)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (256)
-Shifting token '\n' (256)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (256)
-   $2 = token '\n' (256)
--> $$ = nterm line (256)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (256)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Next token is token '(' (256)
-Shifting token '(' (256)
-Entering state 5
-
 Stack now 0 7 5
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 5 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 14
-
 Stack now 0 7 5 14
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
 Stack now 0 7 5 14 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
 Stack now 0 7 5 14 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
 Stack now 0 7 5 14 22 31
-Reading a token: @&t@
-Next token is token ')' (2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '^' (2)
-   $3 = nterm exp (2)
--> $$ = nterm exp (4)
-Entering state 14
-
 Stack now 0 7 5 14
-Next token is token ')' (2)
-Shifting token ')' (2)
-Entering state 25
-
 Stack now 0 7 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (256)
-   $2 = nterm exp (4)
-   $3 = token ')' (2)
--> $$ = nterm exp (4)
-Entering state 9
-
 Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
 Stack now 0 7 9 22
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
 Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 31
-
 Stack now 0 7 9 22 31
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (4)
-   $2 = token '^' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (64)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
 Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (64)
-Shifting token "number" (64)
-Entering state 2
-
 Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (64)
--> $$ = nterm exp (64)
-Entering state 26
-
 Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (64)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (64)
-   $2 = token '=' (3)
-   $3 = nterm exp (64)
--> $$ = nterm exp (64)
-Entering state 9
-
 Stack now 0 7 9
-Next token is token '\n' (64)
-Shifting token '\n' (64)
-Entering state 23
-
 Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (64)
-   $2 = token '\n' (64)
--> $$ = nterm line (64)
-Entering state 16
-
 Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (64)
--> $$ = nterm input (7)
-Entering state 7
-
 Stack now 0 7
-Reading a token: @&t@
-Now at end of input.
-
-Shifting token $end (64)
-Entering state 15
-
 Stack now 0 7 15
 ]])
 
-AT_BISON_OPTION_POPDEFS
-
-AT_BISON_CHECK([PUSHPULLFLAGS [-o Calc.java Calc.y]])
+AT_BISON_CHECK([PUSHPULLFLAG [-o Calc.java Calc.y]])
 AT_JAVA_COMPILE([[Calc.java]])
-# Verify that this is a push parser
-AT_CHECK_JAVA_GREP([[Calc.java]],[[.*public void push_parse_initialize().*]])
-# Capture the output so we can edit out the (line nnnn) occurrences
-AT_JAVA_PARSER_CHECK([Calc input], 0, [], [stderr-nolog])
-AT_CHECK([[sed -e 's/(line[ ][0-9][0-9]*)[,]/,/' stderr]],[ignore],[expout])
-
+#Verify that this is a push parser.
+AT_CHECK_JAVA_GREP([[Calc.java]],
+                   [[.*public void push_parse_initialize().*]])
+# Capture stderr output for comparison purposes.
+AT_JAVA_PARSER_CHECK([Calc input], 0, [ignore-nolog], [stderr-nolog])
+# Extract the "Stack Now" lines from the error output,
+# send them to stdout (via the sed command) and compare to expout.
+# NOTE: because the target is "expout", this macro automatically
+# compares the output of the sed command with the contents of
+# the file "expout" (defined above).
+AT_CHECK([[sed -e '/^Stack now.*$/p' -e d ./stderr|tee jj]],[ignore],[expout],[ignore-nolog])
+AT_BISON_OPTION_POPDEFS
 AT_CLEANUP
 
+# This test looks for location reporting by looking
+# at the lexer output with locations enabled.
+# It defines a lexer that reports location info.
 AT_SETUP([Calc parser with %locations %code lexer and api.push-pull both])
 AT_BISON_OPTION_PUSHDEFS
-AT_DATA([[Calc.y]],[[/* Infix notation calculator--calc */
+
+AT_DATA([Calc.y],[[/* Infix notation calculator--calc.  */
 %language "Java"
 %name-prefix "Calc"
 %define parser_class_name "Calc"
-%lex-param { Reader rdr}
+%lex-param { Reader rdr }
 %locations
 
 %code imports {
@@ -1531,6 +598,7 @@ AT_DATA([[Calc.y]],[[/* Infix notation calculator--calc */
 
 %code lexer {
   StreamTokenizer st;
+  Integer yylval;
 
   public YYLexer(Reader rdr)
   {
@@ -1544,45 +612,32 @@ AT_DATA([[Calc.y]],[[/* Infix notation calculator--calc */
 
   Position yypos = new Position (1, 0);
 
-  public Position getStartPos() {
-    return yypos;
-  }
+  public Position getStartPos() { return yypos; }
 
-  public Position getEndPos() {
-    return yypos;
-  }
+  public Position getEndPos() { return yypos; }
 
-  Integer yylval;
-
-  public Object getLVal() {
-    return yylval;
-  }
+  public Object getLVal() { return yylval; }
 
   public void yyerror(Location loc, String msg)
   {
     System.err.println(loc+":"+msg);
   }
 
-  public int yylex () throws IOException {
-    int ttype = st.nextToken ();
+  public int yylex () throws IOException
+  {
     yypos = new Position (yypos.lineno (),yypos.token () + 1);
-    if (ttype == st.TT_EOF)
-      return EOF;
-
-    else if (ttype == st.TT_EOL)
-      {
+    switch (st.nextToken()) {
+    case StreamTokenizer.TT_EOF:
+        return EOF;
+    case StreamTokenizer.TT_EOL:
         yypos = new Position (yypos.lineno () + 1, 0);
         return (int) '\n';
-      }
-
-    else if (ttype == st.TT_WORD)
-      {
+    case StreamTokenizer.TT_WORD:
         yylval = new Integer (st.sval);
         return NUM;
-      }
-
-    else
+    default:
       return st.ttype;
+    }
   }
 }
 
@@ -1591,17 +646,9 @@ class Position {
   public int line;
   public int token;
 
-  public Position ()
-  {
-    line = 0;
-    token = 0;
-  }
+  public Position () { line = 0; token = 0; }
 
-  public Position (int l, int t)
-  {
-    line = l;
-    token = t;
-  }
+  public Position (int l, int t) { line = l; token = t; }
 
   public boolean equals (Position l)
   {
@@ -1613,17 +660,13 @@ class Position {
     return Integer.toString(line)  + "." + Integer.toString(token);
   }
 
-  public int lineno ()
-  {
-    return line;
-  }
+  public int lineno () { return line; }
 
-  public int token ()
-  {
-    return token;
-  }
+  public int token () { return token; }
+}//Class Position
 }
 
+%code {
 public static void main (String[] argv)
         throws IOException
 {
@@ -1632,1430 +675,151 @@ public static void main (String[] argv)
   calc.setDebugLevel(1);
   calc.parse();
 }
-
-static StringReader
-getinput(String filename)
-    throws IOException
-{
-  StringBuilder buf = new StringBuilder();
-  FileReader file = new FileReader(filename);
-  int c;
-  while((c=file.read()) > 0) {
-    buf.append((char)c);
-  }
-  file.close();
-  return new StringReader(buf.toString());
-}
 }
 
-]AT_CALC_BODY1[
+]AT_CALC_BODY[
 
 ]])
-AT_BISON_OPTION_POPDEFS
 
-AT_DATA([[input]],[[1 + 2 * 3 = 7
-1 + 2 * -3 = -5
-
--1^2 = -1
-(-1)^2 = 1
-
----1 = -1
-
-1 - 2 - 3 = -4
-1 - (2 - 3) = 2
-
-2^2^3 = 256
-(2^2)^3 = 64
+# Define the expected calculator output.
+# This should match the output from a pull parser.
+AT_DATA([output],[[total = 7
+total = -5
+total = -1
+total = 1
+total = -1
+total = -4
+total = 2
+total = 256
+total = 64
 ]])
 
-AT_DATA([[expout]],[[Starting parse
-
-Entering state 0
-
-Stack now 0
-Reading a token: @&t@
-Next token is token "number" (1.1: 1)
-Shifting token "number" (1.1: 1)
-Entering state 2
-
-Stack now 0 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1.1: 1)
--> $$ = nterm exp (1.1: 1)
-Entering state 9
-
-Stack now 0 9
-Reading a token: @&t@
+AT_DATA([locations],[[Next token is token "number" (1.1: 1)
 Next token is token '+' (1.2: 1)
-Shifting token '+' (1.2: 1)
-Entering state 19
-
-Stack now 0 9 19
-Reading a token: @&t@
 Next token is token "number" (1.3: 2)
-Shifting token "number" (1.3: 2)
-Entering state 2
-
-Stack now 0 9 19 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1.3: 2)
--> $$ = nterm exp (1.3: 2)
-Entering state 28
-
-Stack now 0 9 19 28
-Reading a token: @&t@
 Next token is token '*' (1.4: 2)
-Shifting token '*' (1.4: 2)
-Entering state 20
-
-Stack now 0 9 19 28 20
-Reading a token: @&t@
 Next token is token "number" (1.5: 3)
-Shifting token "number" (1.5: 3)
-Entering state 2
-
-Stack now 0 9 19 28 20 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1.5: 3)
--> $$ = nterm exp (1.5: 3)
-Entering state 29
-
-Stack now 0 9 19 28 20 29
-Reading a token: @&t@
 Next token is token '=' (1.6: 3)
-Reducing stack by rule 10 , @&t@
-   $1 = nterm exp (1.3: 2)
-   $2 = token '*' (1.4: 2)
-   $3 = nterm exp (1.5: 3)
--> $$ = nterm exp (1.3-1.5: 6)
-Entering state 28
-
-Stack now 0 9 19 28
 Next token is token '=' (1.6: 3)
-Reducing stack by rule 8 , @&t@
-   $1 = nterm exp (1.1: 1)
-   $2 = token '+' (1.2: 1)
-   $3 = nterm exp (1.3-1.5: 6)
--> $$ = nterm exp (1.1-1.5: 7)
-Entering state 9
-
-Stack now 0 9
 Next token is token '=' (1.6: 3)
-Shifting token '=' (1.6: 3)
-Entering state 17
-
-Stack now 0 9 17
-Reading a token: @&t@
 Next token is token "number" (1.7: 7)
-Shifting token "number" (1.7: 7)
-Entering state 2
-
-Stack now 0 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1.7: 7)
--> $$ = nterm exp (1.7: 7)
-Entering state 26
-
-Stack now 0 9 17 26
-Reading a token: @&t@
 Next token is token '\n' (2.0: 7)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (1.1-1.5: 7)
-   $2 = token '=' (1.6: 3)
-   $3 = nterm exp (1.7: 7)
--> $$ = nterm exp (1.1-1.7: 7)
-Entering state 9
-
-Stack now 0 9
 Next token is token '\n' (2.0: 7)
-Shifting token '\n' (2.0: 7)
-Entering state 23
-
-Stack now 0 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (1.1-1.7: 7)
-   $2 = token '\n' (2.0: 7)
--> $$ = nterm line (1.1-2.0: 7)
-Entering state 8
-
-Stack now 0 8
-Reducing stack by rule 1 , @&t@
-   $1 = nterm line (1.1-2.0: 7)
--> $$ = nterm input (1.1-2.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token "number" (2.1: 1)
-Shifting token "number" (2.1: 1)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2.1: 1)
--> $$ = nterm exp (2.1: 1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
 Next token is token '+' (2.2: 1)
-Shifting token '+' (2.2: 1)
-Entering state 19
-
-Stack now 0 7 9 19
-Reading a token: @&t@
 Next token is token "number" (2.3: 2)
-Shifting token "number" (2.3: 2)
-Entering state 2
-
-Stack now 0 7 9 19 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2.3: 2)
--> $$ = nterm exp (2.3: 2)
-Entering state 28
-
-Stack now 0 7 9 19 28
-Reading a token: @&t@
 Next token is token '*' (2.4: 2)
-Shifting token '*' (2.4: 2)
-Entering state 20
-
-Stack now 0 7 9 19 28 20
-Reading a token: @&t@
 Next token is token '-' (2.5: 2)
-Shifting token '-' (2.5: 2)
-Entering state 3
-
-Stack now 0 7 9 19 28 20 3
-Reading a token: @&t@
 Next token is token "number" (2.6: 3)
-Shifting token "number" (2.6: 3)
-Entering state 2
-
-Stack now 0 7 9 19 28 20 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2.6: 3)
--> $$ = nterm exp (2.6: 3)
-Entering state 12
-
-Stack now 0 7 9 19 28 20 3 12
-Reading a token: @&t@
 Next token is token '=' (2.7: 3)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (2.5: 2)
-   $2 = nterm exp (2.6: 3)
--> $$ = nterm exp (2.5-2.6: -3)
-Entering state 29
-
-Stack now 0 7 9 19 28 20 29
 Next token is token '=' (2.7: 3)
-Reducing stack by rule 10 , @&t@
-   $1 = nterm exp (2.3: 2)
-   $2 = token '*' (2.4: 2)
-   $3 = nterm exp (2.5-2.6: -3)
--> $$ = nterm exp (2.3-2.6: -6)
-Entering state 28
-
-Stack now 0 7 9 19 28
 Next token is token '=' (2.7: 3)
-Reducing stack by rule 8 , @&t@
-   $1 = nterm exp (2.1: 1)
-   $2 = token '+' (2.2: 1)
-   $3 = nterm exp (2.3-2.6: -6)
--> $$ = nterm exp (2.1-2.6: -5)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (2.7: 3)
-Shifting token '=' (2.7: 3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token '-' (2.8: 3)
-Shifting token '-' (2.8: 3)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
 Next token is token "number" (2.9: 5)
-Shifting token "number" (2.9: 5)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2.9: 5)
--> $$ = nterm exp (2.9: 5)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
 Next token is token '\n' (3.0: 5)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (2.8: 3)
-   $2 = nterm exp (2.9: 5)
--> $$ = nterm exp (2.8-2.9: -5)
-Entering state 26
-
-Stack now 0 7 9 17 26
 Next token is token '\n' (3.0: 5)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (2.1-2.6: -5)
-   $2 = token '=' (2.7: 3)
-   $3 = nterm exp (2.8-2.9: -5)
--> $$ = nterm exp (2.1-2.9: -5)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (3.0: 5)
-Shifting token '\n' (3.0: 5)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (2.1-2.9: -5)
-   $2 = token '\n' (3.0: 5)
--> $$ = nterm line (2.1-3.0: -5)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-2.0: 7)
-   $2 = nterm line (2.1-3.0: -5)
--> $$ = nterm input (1.1-3.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '\n' (4.0: 5)
-Shifting token '\n' (4.0: 5)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (4.0: 5)
--> $$ = nterm line (4.0: 5)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-3.0: 7)
-   $2 = nterm line (4.0: 5)
--> $$ = nterm input (1.1-4.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '-' (4.1: 5)
-Shifting token '-' (4.1: 5)
-Entering state 3
-
-Stack now 0 7 3
-Reading a token: @&t@
 Next token is token "number" (4.2: 1)
-Shifting token "number" (4.2: 1)
-Entering state 2
-
-Stack now 0 7 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (4.2: 1)
--> $$ = nterm exp (4.2: 1)
-Entering state 12
-
-Stack now 0 7 3 12
-Reading a token: @&t@
 Next token is token '^' (4.3: 1)
-Shifting token '^' (4.3: 1)
-Entering state 22
-
-Stack now 0 7 3 12 22
-Reading a token: @&t@
 Next token is token "number" (4.4: 2)
-Shifting token "number" (4.4: 2)
-Entering state 2
-
-Stack now 0 7 3 12 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (4.4: 2)
--> $$ = nterm exp (4.4: 2)
-Entering state 31
-
-Stack now 0 7 3 12 22 31
-Reading a token: @&t@
 Next token is token '=' (4.5: 2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (4.2: 1)
-   $2 = token '^' (4.3: 1)
-   $3 = nterm exp (4.4: 2)
--> $$ = nterm exp (4.2-4.4: 1)
-Entering state 12
-
-Stack now 0 7 3 12
 Next token is token '=' (4.5: 2)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (4.1: 5)
-   $2 = nterm exp (4.2-4.4: 1)
--> $$ = nterm exp (4.1-4.4: -1)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (4.5: 2)
-Shifting token '=' (4.5: 2)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token '-' (4.6: 2)
-Shifting token '-' (4.6: 2)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
 Next token is token "number" (4.7: 1)
-Shifting token "number" (4.7: 1)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (4.7: 1)
--> $$ = nterm exp (4.7: 1)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
 Next token is token '\n' (5.0: 1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (4.6: 2)
-   $2 = nterm exp (4.7: 1)
--> $$ = nterm exp (4.6-4.7: -1)
-Entering state 26
-
-Stack now 0 7 9 17 26
 Next token is token '\n' (5.0: 1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (4.1-4.4: -1)
-   $2 = token '=' (4.5: 2)
-   $3 = nterm exp (4.6-4.7: -1)
--> $$ = nterm exp (4.1-4.7: -1)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (5.0: 1)
-Shifting token '\n' (5.0: 1)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (4.1-4.7: -1)
-   $2 = token '\n' (5.0: 1)
--> $$ = nterm line (4.1-5.0: -1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-4.0: 7)
-   $2 = nterm line (4.1-5.0: -1)
--> $$ = nterm input (1.1-5.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '(' (5.1: 1)
-Shifting token '(' (5.1: 1)
-Entering state 5
-
-Stack now 0 7 5
-Reading a token: @&t@
 Next token is token '-' (5.2: 1)
-Shifting token '-' (5.2: 1)
-Entering state 3
-
-Stack now 0 7 5 3
-Reading a token: @&t@
 Next token is token "number" (5.3: 1)
-Shifting token "number" (5.3: 1)
-Entering state 2
-
-Stack now 0 7 5 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (5.3: 1)
--> $$ = nterm exp (5.3: 1)
-Entering state 12
-
-Stack now 0 7 5 3 12
-Reading a token: @&t@
 Next token is token ')' (5.4: 1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (5.2: 1)
-   $2 = nterm exp (5.3: 1)
--> $$ = nterm exp (5.2-5.3: -1)
-Entering state 14
-
-Stack now 0 7 5 14
 Next token is token ')' (5.4: 1)
-Shifting token ')' (5.4: 1)
-Entering state 25
-
-Stack now 0 7 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (5.1: 1)
-   $2 = nterm exp (5.2-5.3: -1)
-   $3 = token ')' (5.4: 1)
--> $$ = nterm exp (5.1-5.4: -1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
 Next token is token '^' (5.5: 1)
-Shifting token '^' (5.5: 1)
-Entering state 22
-
-Stack now 0 7 9 22
-Reading a token: @&t@
 Next token is token "number" (5.6: 2)
-Shifting token "number" (5.6: 2)
-Entering state 2
-
-Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (5.6: 2)
--> $$ = nterm exp (5.6: 2)
-Entering state 31
-
-Stack now 0 7 9 22 31
-Reading a token: @&t@
 Next token is token '=' (5.7: 2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (5.1-5.4: -1)
-   $2 = token '^' (5.5: 1)
-   $3 = nterm exp (5.6: 2)
--> $$ = nterm exp (5.1-5.6: 1)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (5.7: 2)
-Shifting token '=' (5.7: 2)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token "number" (5.8: 1)
-Shifting token "number" (5.8: 1)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (5.8: 1)
--> $$ = nterm exp (5.8: 1)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
 Next token is token '\n' (6.0: 1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (5.1-5.6: 1)
-   $2 = token '=' (5.7: 2)
-   $3 = nterm exp (5.8: 1)
--> $$ = nterm exp (5.1-5.8: 1)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (6.0: 1)
-Shifting token '\n' (6.0: 1)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (5.1-5.8: 1)
-   $2 = token '\n' (6.0: 1)
--> $$ = nterm line (5.1-6.0: 1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-5.0: 7)
-   $2 = nterm line (5.1-6.0: 1)
--> $$ = nterm input (1.1-6.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '\n' (7.0: 1)
-Shifting token '\n' (7.0: 1)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (7.0: 1)
--> $$ = nterm line (7.0: 1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-6.0: 7)
-   $2 = nterm line (7.0: 1)
--> $$ = nterm input (1.1-7.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '-' (7.1: 1)
-Shifting token '-' (7.1: 1)
-Entering state 3
-
-Stack now 0 7 3
-Reading a token: @&t@
 Next token is token '-' (7.2: 1)
-Shifting token '-' (7.2: 1)
-Entering state 3
-
-Stack now 0 7 3 3
-Reading a token: @&t@
 Next token is token '-' (7.3: 1)
-Shifting token '-' (7.3: 1)
-Entering state 3
-
-Stack now 0 7 3 3 3
-Reading a token: @&t@
 Next token is token "number" (7.4: 1)
-Shifting token "number" (7.4: 1)
-Entering state 2
-
-Stack now 0 7 3 3 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (7.4: 1)
--> $$ = nterm exp (7.4: 1)
-Entering state 12
-
-Stack now 0 7 3 3 3 12
-Reading a token: @&t@
 Next token is token '=' (7.5: 1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (7.3: 1)
-   $2 = nterm exp (7.4: 1)
--> $$ = nterm exp (7.3-7.4: -1)
-Entering state 12
-
-Stack now 0 7 3 3 12
 Next token is token '=' (7.5: 1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (7.2: 1)
-   $2 = nterm exp (7.3-7.4: -1)
--> $$ = nterm exp (7.2-7.4: 1)
-Entering state 12
-
-Stack now 0 7 3 12
 Next token is token '=' (7.5: 1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (7.1: 1)
-   $2 = nterm exp (7.2-7.4: 1)
--> $$ = nterm exp (7.1-7.4: -1)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (7.5: 1)
-Shifting token '=' (7.5: 1)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token '-' (7.6: 1)
-Shifting token '-' (7.6: 1)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
 Next token is token "number" (7.7: 1)
-Shifting token "number" (7.7: 1)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (7.7: 1)
--> $$ = nterm exp (7.7: 1)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
 Next token is token '\n' (8.0: 1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (7.6: 1)
-   $2 = nterm exp (7.7: 1)
--> $$ = nterm exp (7.6-7.7: -1)
-Entering state 26
-
-Stack now 0 7 9 17 26
 Next token is token '\n' (8.0: 1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (7.1-7.4: -1)
-   $2 = token '=' (7.5: 1)
-   $3 = nterm exp (7.6-7.7: -1)
--> $$ = nterm exp (7.1-7.7: -1)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (8.0: 1)
-Shifting token '\n' (8.0: 1)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (7.1-7.7: -1)
-   $2 = token '\n' (8.0: 1)
--> $$ = nterm line (7.1-8.0: -1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-7.0: 7)
-   $2 = nterm line (7.1-8.0: -1)
--> $$ = nterm input (1.1-8.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '\n' (9.0: 1)
-Shifting token '\n' (9.0: 1)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (9.0: 1)
--> $$ = nterm line (9.0: 1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-8.0: 7)
-   $2 = nterm line (9.0: 1)
--> $$ = nterm input (1.1-9.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token "number" (9.1: 1)
-Shifting token "number" (9.1: 1)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (9.1: 1)
--> $$ = nterm exp (9.1: 1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
 Next token is token '-' (9.2: 1)
-Shifting token '-' (9.2: 1)
-Entering state 18
-
-Stack now 0 7 9 18
-Reading a token: @&t@
 Next token is token "number" (9.3: 2)
-Shifting token "number" (9.3: 2)
-Entering state 2
-
-Stack now 0 7 9 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (9.3: 2)
--> $$ = nterm exp (9.3: 2)
-Entering state 27
-
-Stack now 0 7 9 18 27
-Reading a token: @&t@
 Next token is token '-' (9.4: 2)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (9.1: 1)
-   $2 = token '-' (9.2: 1)
-   $3 = nterm exp (9.3: 2)
--> $$ = nterm exp (9.1-9.3: -1)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '-' (9.4: 2)
-Shifting token '-' (9.4: 2)
-Entering state 18
-
-Stack now 0 7 9 18
-Reading a token: @&t@
 Next token is token "number" (9.5: 3)
-Shifting token "number" (9.5: 3)
-Entering state 2
-
-Stack now 0 7 9 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (9.5: 3)
--> $$ = nterm exp (9.5: 3)
-Entering state 27
-
-Stack now 0 7 9 18 27
-Reading a token: @&t@
 Next token is token '=' (9.6: 3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (9.1-9.3: -1)
-   $2 = token '-' (9.4: 2)
-   $3 = nterm exp (9.5: 3)
--> $$ = nterm exp (9.1-9.5: -4)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (9.6: 3)
-Shifting token '=' (9.6: 3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token '-' (9.7: 3)
-Shifting token '-' (9.7: 3)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
 Next token is token "number" (9.8: 4)
-Shifting token "number" (9.8: 4)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (9.8: 4)
--> $$ = nterm exp (9.8: 4)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
 Next token is token '\n' (10.0: 4)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (9.7: 3)
-   $2 = nterm exp (9.8: 4)
--> $$ = nterm exp (9.7-9.8: -4)
-Entering state 26
-
-Stack now 0 7 9 17 26
 Next token is token '\n' (10.0: 4)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (9.1-9.5: -4)
-   $2 = token '=' (9.6: 3)
-   $3 = nterm exp (9.7-9.8: -4)
--> $$ = nterm exp (9.1-9.8: -4)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (10.0: 4)
-Shifting token '\n' (10.0: 4)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (9.1-9.8: -4)
-   $2 = token '\n' (10.0: 4)
--> $$ = nterm line (9.1-10.0: -4)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-9.0: 7)
-   $2 = nterm line (9.1-10.0: -4)
--> $$ = nterm input (1.1-10.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token "number" (10.1: 1)
-Shifting token "number" (10.1: 1)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (10.1: 1)
--> $$ = nterm exp (10.1: 1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
 Next token is token '-' (10.2: 1)
-Shifting token '-' (10.2: 1)
-Entering state 18
-
-Stack now 0 7 9 18
-Reading a token: @&t@
 Next token is token '(' (10.3: 1)
-Shifting token '(' (10.3: 1)
-Entering state 5
-
-Stack now 0 7 9 18 5
-Reading a token: @&t@
 Next token is token "number" (10.4: 2)
-Shifting token "number" (10.4: 2)
-Entering state 2
-
-Stack now 0 7 9 18 5 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (10.4: 2)
--> $$ = nterm exp (10.4: 2)
-Entering state 14
-
-Stack now 0 7 9 18 5 14
-Reading a token: @&t@
 Next token is token '-' (10.5: 2)
-Shifting token '-' (10.5: 2)
-Entering state 18
-
-Stack now 0 7 9 18 5 14 18
-Reading a token: @&t@
 Next token is token "number" (10.6: 3)
-Shifting token "number" (10.6: 3)
-Entering state 2
-
-Stack now 0 7 9 18 5 14 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (10.6: 3)
--> $$ = nterm exp (10.6: 3)
-Entering state 27
-
-Stack now 0 7 9 18 5 14 18 27
-Reading a token: @&t@
 Next token is token ')' (10.7: 3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (10.4: 2)
-   $2 = token '-' (10.5: 2)
-   $3 = nterm exp (10.6: 3)
--> $$ = nterm exp (10.4-10.6: -1)
-Entering state 14
-
-Stack now 0 7 9 18 5 14
 Next token is token ')' (10.7: 3)
-Shifting token ')' (10.7: 3)
-Entering state 25
-
-Stack now 0 7 9 18 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (10.3: 1)
-   $2 = nterm exp (10.4-10.6: -1)
-   $3 = token ')' (10.7: 3)
--> $$ = nterm exp (10.3-10.7: -1)
-Entering state 27
-
-Stack now 0 7 9 18 27
-Reading a token: @&t@
 Next token is token '=' (10.8: 3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (10.1: 1)
-   $2 = token '-' (10.2: 1)
-   $3 = nterm exp (10.3-10.7: -1)
--> $$ = nterm exp (10.1-10.7: 2)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (10.8: 3)
-Shifting token '=' (10.8: 3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token "number" (10.9: 2)
-Shifting token "number" (10.9: 2)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (10.9: 2)
--> $$ = nterm exp (10.9: 2)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
 Next token is token '\n' (11.0: 2)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (10.1-10.7: 2)
-   $2 = token '=' (10.8: 3)
-   $3 = nterm exp (10.9: 2)
--> $$ = nterm exp (10.1-10.9: 2)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (11.0: 2)
-Shifting token '\n' (11.0: 2)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (10.1-10.9: 2)
-   $2 = token '\n' (11.0: 2)
--> $$ = nterm line (10.1-11.0: 2)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-10.0: 7)
-   $2 = nterm line (10.1-11.0: 2)
--> $$ = nterm input (1.1-11.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '\n' (12.0: 2)
-Shifting token '\n' (12.0: 2)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (12.0: 2)
--> $$ = nterm line (12.0: 2)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-11.0: 7)
-   $2 = nterm line (12.0: 2)
--> $$ = nterm input (1.1-12.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token "number" (12.1: 2)
-Shifting token "number" (12.1: 2)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (12.1: 2)
--> $$ = nterm exp (12.1: 2)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
 Next token is token '^' (12.2: 2)
-Shifting token '^' (12.2: 2)
-Entering state 22
-
-Stack now 0 7 9 22
-Reading a token: @&t@
 Next token is token "number" (12.3: 2)
-Shifting token "number" (12.3: 2)
-Entering state 2
-
-Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (12.3: 2)
--> $$ = nterm exp (12.3: 2)
-Entering state 31
-
-Stack now 0 7 9 22 31
-Reading a token: @&t@
 Next token is token '^' (12.4: 2)
-Shifting token '^' (12.4: 2)
-Entering state 22
-
-Stack now 0 7 9 22 31 22
-Reading a token: @&t@
 Next token is token "number" (12.5: 3)
-Shifting token "number" (12.5: 3)
-Entering state 2
-
-Stack now 0 7 9 22 31 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (12.5: 3)
--> $$ = nterm exp (12.5: 3)
-Entering state 31
-
-Stack now 0 7 9 22 31 22 31
-Reading a token: @&t@
 Next token is token '=' (12.6: 3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (12.3: 2)
-   $2 = token '^' (12.4: 2)
-   $3 = nterm exp (12.5: 3)
--> $$ = nterm exp (12.3-12.5: 8)
-Entering state 31
-
-Stack now 0 7 9 22 31
 Next token is token '=' (12.6: 3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (12.1: 2)
-   $2 = token '^' (12.2: 2)
-   $3 = nterm exp (12.3-12.5: 8)
--> $$ = nterm exp (12.1-12.5: 256)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (12.6: 3)
-Shifting token '=' (12.6: 3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token "number" (12.7: 256)
-Shifting token "number" (12.7: 256)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (12.7: 256)
--> $$ = nterm exp (12.7: 256)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
 Next token is token '\n' (13.0: 256)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (12.1-12.5: 256)
-   $2 = token '=' (12.6: 3)
-   $3 = nterm exp (12.7: 256)
--> $$ = nterm exp (12.1-12.7: 256)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (13.0: 256)
-Shifting token '\n' (13.0: 256)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (12.1-12.7: 256)
-   $2 = token '\n' (13.0: 256)
--> $$ = nterm line (12.1-13.0: 256)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-12.0: 7)
-   $2 = nterm line (12.1-13.0: 256)
--> $$ = nterm input (1.1-13.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
 Next token is token '(' (13.1: 256)
-Shifting token '(' (13.1: 256)
-Entering state 5
-
-Stack now 0 7 5
-Reading a token: @&t@
 Next token is token "number" (13.2: 2)
-Shifting token "number" (13.2: 2)
-Entering state 2
-
-Stack now 0 7 5 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (13.2: 2)
--> $$ = nterm exp (13.2: 2)
-Entering state 14
-
-Stack now 0 7 5 14
-Reading a token: @&t@
 Next token is token '^' (13.3: 2)
-Shifting token '^' (13.3: 2)
-Entering state 22
-
-Stack now 0 7 5 14 22
-Reading a token: @&t@
 Next token is token "number" (13.4: 2)
-Shifting token "number" (13.4: 2)
-Entering state 2
-
-Stack now 0 7 5 14 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (13.4: 2)
--> $$ = nterm exp (13.4: 2)
-Entering state 31
-
-Stack now 0 7 5 14 22 31
-Reading a token: @&t@
 Next token is token ')' (13.5: 2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (13.2: 2)
-   $2 = token '^' (13.3: 2)
-   $3 = nterm exp (13.4: 2)
--> $$ = nterm exp (13.2-13.4: 4)
-Entering state 14
-
-Stack now 0 7 5 14
 Next token is token ')' (13.5: 2)
-Shifting token ')' (13.5: 2)
-Entering state 25
-
-Stack now 0 7 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (13.1: 256)
-   $2 = nterm exp (13.2-13.4: 4)
-   $3 = token ')' (13.5: 2)
--> $$ = nterm exp (13.1-13.5: 4)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
 Next token is token '^' (13.6: 2)
-Shifting token '^' (13.6: 2)
-Entering state 22
-
-Stack now 0 7 9 22
-Reading a token: @&t@
 Next token is token "number" (13.7: 3)
-Shifting token "number" (13.7: 3)
-Entering state 2
-
-Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (13.7: 3)
--> $$ = nterm exp (13.7: 3)
-Entering state 31
-
-Stack now 0 7 9 22 31
-Reading a token: @&t@
 Next token is token '=' (13.8: 3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (13.1-13.5: 4)
-   $2 = token '^' (13.6: 2)
-   $3 = nterm exp (13.7: 3)
--> $$ = nterm exp (13.1-13.7: 64)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '=' (13.8: 3)
-Shifting token '=' (13.8: 3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
 Next token is token "number" (13.9: 64)
-Shifting token "number" (13.9: 64)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (13.9: 64)
--> $$ = nterm exp (13.9: 64)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
 Next token is token '\n' (14.0: 64)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (13.1-13.7: 64)
-   $2 = token '=' (13.8: 3)
-   $3 = nterm exp (13.9: 64)
--> $$ = nterm exp (13.1-13.9: 64)
-Entering state 9
-
-Stack now 0 7 9
 Next token is token '\n' (14.0: 64)
-Shifting token '\n' (14.0: 64)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (13.1-13.9: 64)
-   $2 = token '\n' (14.0: 64)
--> $$ = nterm line (13.1-14.0: 64)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (1.1-13.0: 7)
-   $2 = nterm line (13.1-14.0: 64)
--> $$ = nterm input (1.1-14.0: 7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Now at end of input.
-
-Shifting token $end (14.1: 64)
-Entering state 15
-
-Stack now 0 7 15
 ]])
 
-AT_BISON_CHECK([PUSHPULLFLAGS [-o Calc.java Calc.y]])
-AT_JAVA_COMPILE([[Calc.java]])
-# Verify that this is a push parser
-AT_CHECK_JAVA_GREP([[Calc.java]],[[.*public void push_parse_initialize().*]])
-# Capture the output so we can edit out the (line nnnn) occurrences
-AT_JAVA_PARSER_CHECK([Calc input], 0, [], [stderr-nolog])
-AT_CHECK([[sed -e 's/(line[ ][0-9][0-9]*)[,]/,/' stderr]],[ignore],[expout])
-AT_CLEANUP
+# Define the calculator input.
+# Warning: if you changes the input file
+# then the locations test file position numbers
+# may be incorrect and you will have
+# to modify that file as well.
 
-AT_SETUP([Calc parser with api.push-pull both and %define extends])
-AT_BISON_OPTION_PUSHDEFS
-AT_DATA([[Calc.y]],[[/* Infix notation calculator--calc */
-%language "Java"
-%name-prefix "Calc"
-%define parser_class_name "Calc"
-%define extends "CalcActions"
-
-%code init {
-    super();
-}
-
-%code imports {
-  import java.io.*;
-}
-
-%code {
-
-  /* Make yylexer visible */
-  Lexer getLexer() {return yylexer;}
-
-  public static void main (String[] argv)
-        throws IOException
-  {
-    StringReader reader = getinput(argv[0]);
-    UserLexer lexer = new UserLexer(reader);
-    Calc calc = new Calc(lexer);
-    calc.setDebugLevel(1);
-    calc.parse();
-  }
-
-
-  static StringReader
-  getinput(String filename) throws IOException
-  {
-    StringBuilder buf = new StringBuilder();
-    FileReader file = new FileReader(filename);
-    int c;
-    while((c=file.read()) > 0) {
-      buf.append((char)c);
-    }
-    file.close();
-    return new StringReader(buf.toString());
-  }
-}
-
-/* Bison Declarations */
-%token <Integer> NUM "number"
-%type  <Integer> exp
-
-%nonassoc '=' /* comparison            */
-%left '-' '+'
-%left '*' '/'
-%left NEG     /* negation--unary minus */
-%right '^'    /* exponentiation        */
-
-/* Grammar follows */
-%%
-input:
-  line
-| input line
-;
-
-line:
-  '\n'
-| exp '\n'
-| error '\n'
-;
-
-exp:
-  NUM                { $$ = $1;}
-| exp '=' exp {$$ = action_eq($1,$3);}
-| exp '+' exp {$$ = action_add($1,$3);}
-| exp '-' exp {$$ = action_sub($1,$3);}
-| exp '*' exp {$$ = action_mult($1,$3);}
-| exp '/' exp {$$ = action_div($1,$3);}
-| '-' exp  %prec NEG {$$ = action_minus($2);}
-| exp '^' exp {$$ = action_exp($1,$3);}
-| '(' exp ')'   {$$ = action_ident($2);}
-| '(' error ')' {$$ = action_error1();}
-| '!'            {$$ = action_fail(); return YYERROR;}
-| '-' error     {$$ = action_error2(); return YYERROR;}
-;
-
-%%
-
-class UserLexer implements Calc.Lexer
-{
-  StreamTokenizer st;
-  StringReader rdr;
-
-  public UserLexer(StringReader reader)
-  {
-    rdr = reader;
-    st = new StreamTokenizer(rdr);
-    st.resetSyntax();
-    st.eolIsSignificant(true);
-    st.whitespaceChars(9, 9);
-    st.whitespaceChars(32, 32);
-    st.wordChars(48, 57);
-  }
-
-  Integer yylval;
-
-  public Object getLVal() {return yylval;}
-
-  public void yyerror(String msg) {System.err.println(msg);}
-
-  public int yylex () throws IOException
-  {
-    int ttype = st.nextToken ();
-    if (ttype == st.TT_EOF) {return EOF;}
-    else if (ttype == st.TT_EOL) {
-        return (int) '\n';
-    } else if (ttype == st.TT_WORD) {
-        yylval = new Integer (st.sval);
-        return NUM;
-    } else
-      return st.ttype;
-  }
-}
-
-abstract class CalcActions
-{
-  CalcActions() {};
-
-  abstract Calc.Lexer getLexer();
-
-  Integer
-  action_eq(Integer i1, Integer i2)
-  {
-    if (i1.intValue() != i2.intValue())
-      getLexer().yyerror (]AT_LOCATION_IF([@$,])[ "calc: error: " + i1 + " != " + i2);
-    return i1; /* default */
-  }
-
-  Integer
-  action_sub(Integer i1, Integer i2)
-      {return new Integer (i1.intValue () - i2.intValue ());}
-
-  Integer
-  action_add(Integer i1, Integer i2)
-      {return new Integer (i1.intValue () + i2.intValue ());}
-
-  Integer
-  action_mult(Integer i1, Integer i2)
-      {return new Integer (i1.intValue () * i2.intValue ());}
-
-  Integer
-  action_div(Integer i1, Integer i2)
-      {return new Integer (i1.intValue () / i2.intValue ());}
-
-  Integer
-  action_minus(Integer i1)
-      {return new Integer (- i1.intValue ());}
-
-  Integer
-  action_exp(Integer i1, Integer i2)
-      {return new Integer ((int)Math.pow(i1.intValue(),i2.intValue ()));}
-
-  Integer
-  action_ident(Integer i1)
-      {return i1;}
-
-  Integer
-  action_error1()
-      {return new Integer(1111);}
-
-  Integer
-  action_fail()
-      {return new Integer(0);}
-
-  Integer
-  action_error2()
-      {return new Integer(0);}
-}
-]])
-
-AT_BISON_OPTION_POPDEFS
-
-AT_DATA([[input]],[[1 + 2 * 3 = 7
+AT_DATA([input],[[1 + 2 * 3 = 7
 1 + 2 * -3 = -5
 
 -1^2 = -1
@@ -3070,1209 +834,18 @@ AT_DATA([[input]],[[1 + 2 * 3 = 7
 (2^2)^3 = 64
 ]])
 
-AT_DATA([[expout]],[[Starting parse
-
-Entering state 0
-
-Stack now 0
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
-Stack now 0 9
-Reading a token: @&t@
-Next token is token '+' (1)
-Shifting token '+' (1)
-Entering state 19
-
-Stack now 0 9 19
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 9 19 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 28
-
-Stack now 0 9 19 28
-Reading a token: @&t@
-Next token is token '*' (2)
-Shifting token '*' (2)
-Entering state 20
-
-Stack now 0 9 19 28 20
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
-Stack now 0 9 19 28 20 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 29
-
-Stack now 0 9 19 28 20 29
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 10 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '*' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (6)
-Entering state 28
-
-Stack now 0 9 19 28
-Next token is token '=' (3)
-Reducing stack by rule 8 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '+' (1)
-   $3 = nterm exp (6)
--> $$ = nterm exp (7)
-Entering state 9
-
-Stack now 0 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
-Stack now 0 9 17
-Reading a token: @&t@
-Next token is token "number" (7)
-Shifting token "number" (7)
-Entering state 2
-
-Stack now 0 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (7)
--> $$ = nterm exp (7)
-Entering state 26
-
-Stack now 0 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (7)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (7)
-   $2 = token '=' (3)
-   $3 = nterm exp (7)
--> $$ = nterm exp (7)
-Entering state 9
-
-Stack now 0 9
-Next token is token '\n' (7)
-Shifting token '\n' (7)
-Entering state 23
-
-Stack now 0 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (7)
-   $2 = token '\n' (7)
--> $$ = nterm line (7)
-Entering state 8
-
-Stack now 0 8
-Reducing stack by rule 1 , @&t@
-   $1 = nterm line (7)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '+' (1)
-Shifting token '+' (1)
-Entering state 19
-
-Stack now 0 7 9 19
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 9 19 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 28
-
-Stack now 0 7 9 19 28
-Reading a token: @&t@
-Next token is token '*' (2)
-Shifting token '*' (2)
-Entering state 20
-
-Stack now 0 7 9 19 28 20
-Reading a token: @&t@
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 3
-
-Stack now 0 7 9 19 28 20 3
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
-Stack now 0 7 9 19 28 20 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 12
-
-Stack now 0 7 9 19 28 20 3 12
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (2)
-   $2 = nterm exp (3)
--> $$ = nterm exp (-3)
-Entering state 29
-
-Stack now 0 7 9 19 28 20 29
-Next token is token '=' (3)
-Reducing stack by rule 10 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '*' (2)
-   $3 = nterm exp (-3)
--> $$ = nterm exp (-6)
-Entering state 28
-
-Stack now 0 7 9 19 28
-Next token is token '=' (3)
-Reducing stack by rule 8 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '+' (1)
-   $3 = nterm exp (-6)
--> $$ = nterm exp (-5)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (3)
-Shifting token '-' (3)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (5)
-Shifting token "number" (5)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (5)
--> $$ = nterm exp (5)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (5)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (3)
-   $2 = nterm exp (5)
--> $$ = nterm exp (-5)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Next token is token '\n' (5)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-5)
-   $2 = token '=' (3)
-   $3 = nterm exp (-5)
--> $$ = nterm exp (-5)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (5)
-Shifting token '\n' (5)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-5)
-   $2 = token '\n' (5)
--> $$ = nterm line (-5)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-5)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (5)
-Shifting token '\n' (5)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (5)
--> $$ = nterm line (5)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (5)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '-' (5)
-Shifting token '-' (5)
-Entering state 3
-
-Stack now 0 7 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
-Stack now 0 7 3 12
-Reading a token: @&t@
-Next token is token '^' (1)
-Shifting token '^' (1)
-Entering state 22
-
-Stack now 0 7 3 12 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 3 12 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
-Stack now 0 7 3 12 22 31
-Reading a token: @&t@
-Next token is token '=' (2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '^' (1)
-   $3 = nterm exp (2)
--> $$ = nterm exp (1)
-Entering state 12
-
-Stack now 0 7 3 12
-Next token is token '=' (2)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (5)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (2)
-Shifting token '=' (2)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (2)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Next token is token '\n' (1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '=' (2)
-   $3 = nterm exp (-1)
--> $$ = nterm exp (-1)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '\n' (1)
--> $$ = nterm line (-1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-1)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '(' (1)
-Shifting token '(' (1)
-Entering state 5
-
-Stack now 0 7 5
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
-Stack now 0 7 5 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 5 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
-Stack now 0 7 5 3 12
-Reading a token: @&t@
-Next token is token ')' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 14
-
-Stack now 0 7 5 14
-Next token is token ')' (1)
-Shifting token ')' (1)
-Entering state 25
-
-Stack now 0 7 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (1)
-   $2 = nterm exp (-1)
-   $3 = token ')' (1)
--> $$ = nterm exp (-1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '^' (1)
-Shifting token '^' (1)
-Entering state 22
-
-Stack now 0 7 9 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
-Stack now 0 7 9 22 31
-Reading a token: @&t@
-Next token is token '=' (2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '^' (1)
-   $3 = nterm exp (2)
--> $$ = nterm exp (1)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (2)
-Shifting token '=' (2)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '=' (2)
-   $3 = nterm exp (1)
--> $$ = nterm exp (1)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '\n' (1)
--> $$ = nterm line (1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (1)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (1)
--> $$ = nterm line (1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (1)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
-Stack now 0 7 3
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
-Stack now 0 7 3 3
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
-Stack now 0 7 3 3 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 3 3 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
-Stack now 0 7 3 3 3 12
-Reading a token: @&t@
-Next token is token '=' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 12
-
-Stack now 0 7 3 3 12
-Next token is token '=' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (-1)
--> $$ = nterm exp (1)
-Entering state 12
-
-Stack now 0 7 3 12
-Next token is token '=' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (1)
-Shifting token '=' (1)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (1)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (1)
-   $2 = nterm exp (1)
--> $$ = nterm exp (-1)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Next token is token '\n' (1)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '=' (1)
-   $3 = nterm exp (-1)
--> $$ = nterm exp (-1)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '\n' (1)
--> $$ = nterm line (-1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-1)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (1)
-Shifting token '\n' (1)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (1)
--> $$ = nterm line (1)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (1)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 18
-
-Stack now 0 7 9 18
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 9 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 27
-
-Stack now 0 7 9 18 27
-Reading a token: @&t@
-Next token is token '-' (2)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '-' (1)
-   $3 = nterm exp (2)
--> $$ = nterm exp (-1)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 18
-
-Stack now 0 7 9 18
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
-Stack now 0 7 9 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 27
-
-Stack now 0 7 9 18 27
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (-1)
-   $2 = token '-' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (-4)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token '-' (3)
-Shifting token '-' (3)
-Entering state 3
-
-Stack now 0 7 9 17 3
-Reading a token: @&t@
-Next token is token "number" (4)
-Shifting token "number" (4)
-Entering state 2
-
-Stack now 0 7 9 17 3 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (4)
--> $$ = nterm exp (4)
-Entering state 12
-
-Stack now 0 7 9 17 3 12
-Reading a token: @&t@
-Next token is token '\n' (4)
-Reducing stack by rule 12 , @&t@
-   $1 = token '-' (3)
-   $2 = nterm exp (4)
--> $$ = nterm exp (-4)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Next token is token '\n' (4)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (-4)
-   $2 = token '=' (3)
-   $3 = nterm exp (-4)
--> $$ = nterm exp (-4)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (4)
-Shifting token '\n' (4)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (-4)
-   $2 = token '\n' (4)
--> $$ = nterm line (-4)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (-4)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (1)
-Shifting token "number" (1)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (1)
--> $$ = nterm exp (1)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '-' (1)
-Shifting token '-' (1)
-Entering state 18
-
-Stack now 0 7 9 18
-Reading a token: @&t@
-Next token is token '(' (1)
-Shifting token '(' (1)
-Entering state 5
-
-Stack now 0 7 9 18 5
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 9 18 5 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 14
-
-Stack now 0 7 9 18 5 14
-Reading a token: @&t@
-Next token is token '-' (2)
-Shifting token '-' (2)
-Entering state 18
-
-Stack now 0 7 9 18 5 14 18
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
-Stack now 0 7 9 18 5 14 18 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 27
-
-Stack now 0 7 9 18 5 14 18 27
-Reading a token: @&t@
-Next token is token ')' (3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '-' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (-1)
-Entering state 14
-
-Stack now 0 7 9 18 5 14
-Next token is token ')' (3)
-Shifting token ')' (3)
-Entering state 25
-
-Stack now 0 7 9 18 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (1)
-   $2 = nterm exp (-1)
-   $3 = token ')' (3)
--> $$ = nterm exp (-1)
-Entering state 27
-
-Stack now 0 7 9 18 27
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 9 , @&t@
-   $1 = nterm exp (1)
-   $2 = token '-' (1)
-   $3 = nterm exp (-1)
--> $$ = nterm exp (2)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (2)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '=' (3)
-   $3 = nterm exp (2)
--> $$ = nterm exp (2)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (2)
-Shifting token '\n' (2)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '\n' (2)
--> $$ = nterm line (2)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (2)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '\n' (2)
-Shifting token '\n' (2)
-Entering state 4
-
-Stack now 0 7 4
-Reducing stack by rule 3 , @&t@
-   $1 = token '\n' (2)
--> $$ = nterm line (2)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (2)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
-Stack now 0 7 9 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
-Stack now 0 7 9 22 31
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
-Stack now 0 7 9 22 31 22
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
-Stack now 0 7 9 22 31 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 31
-
-Stack now 0 7 9 22 31 22 31
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '^' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (8)
-Entering state 31
-
-Stack now 0 7 9 22 31
-Next token is token '=' (3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '^' (2)
-   $3 = nterm exp (8)
--> $$ = nterm exp (256)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (256)
-Shifting token "number" (256)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (256)
--> $$ = nterm exp (256)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (256)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (256)
-   $2 = token '=' (3)
-   $3 = nterm exp (256)
--> $$ = nterm exp (256)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (256)
-Shifting token '\n' (256)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (256)
-   $2 = token '\n' (256)
--> $$ = nterm line (256)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (256)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Next token is token '(' (256)
-Shifting token '(' (256)
-Entering state 5
-
-Stack now 0 7 5
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 5 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 14
-
-Stack now 0 7 5 14
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
-Stack now 0 7 5 14 22
-Reading a token: @&t@
-Next token is token "number" (2)
-Shifting token "number" (2)
-Entering state 2
-
-Stack now 0 7 5 14 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (2)
--> $$ = nterm exp (2)
-Entering state 31
-
-Stack now 0 7 5 14 22 31
-Reading a token: @&t@
-Next token is token ')' (2)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (2)
-   $2 = token '^' (2)
-   $3 = nterm exp (2)
--> $$ = nterm exp (4)
-Entering state 14
-
-Stack now 0 7 5 14
-Next token is token ')' (2)
-Shifting token ')' (2)
-Entering state 25
-
-Stack now 0 7 5 14 25
-Reducing stack by rule 14 , @&t@
-   $1 = token '(' (256)
-   $2 = nterm exp (4)
-   $3 = token ')' (2)
--> $$ = nterm exp (4)
-Entering state 9
-
-Stack now 0 7 9
-Reading a token: @&t@
-Next token is token '^' (2)
-Shifting token '^' (2)
-Entering state 22
-
-Stack now 0 7 9 22
-Reading a token: @&t@
-Next token is token "number" (3)
-Shifting token "number" (3)
-Entering state 2
-
-Stack now 0 7 9 22 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (3)
--> $$ = nterm exp (3)
-Entering state 31
-
-Stack now 0 7 9 22 31
-Reading a token: @&t@
-Next token is token '=' (3)
-Reducing stack by rule 13 , @&t@
-   $1 = nterm exp (4)
-   $2 = token '^' (2)
-   $3 = nterm exp (3)
--> $$ = nterm exp (64)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '=' (3)
-Shifting token '=' (3)
-Entering state 17
-
-Stack now 0 7 9 17
-Reading a token: @&t@
-Next token is token "number" (64)
-Shifting token "number" (64)
-Entering state 2
-
-Stack now 0 7 9 17 2
-Reducing stack by rule 6 , @&t@
-   $1 = token "number" (64)
--> $$ = nterm exp (64)
-Entering state 26
-
-Stack now 0 7 9 17 26
-Reading a token: @&t@
-Next token is token '\n' (64)
-Reducing stack by rule 7 , @&t@
-   $1 = nterm exp (64)
-   $2 = token '=' (3)
-   $3 = nterm exp (64)
--> $$ = nterm exp (64)
-Entering state 9
-
-Stack now 0 7 9
-Next token is token '\n' (64)
-Shifting token '\n' (64)
-Entering state 23
-
-Stack now 0 7 9 23
-Reducing stack by rule 4 , @&t@
-   $1 = nterm exp (64)
-   $2 = token '\n' (64)
--> $$ = nterm line (64)
-Entering state 16
-
-Stack now 0 7 16
-Reducing stack by rule 2 , @&t@
-   $1 = nterm input (7)
-   $2 = nterm line (64)
--> $$ = nterm input (7)
-Entering state 7
-
-Stack now 0 7
-Reading a token: @&t@
-Now at end of input.
-
-Shifting token $end (64)
-Entering state 15
-
-Stack now 0 7 15
-]])
-
-AT_BISON_CHECK([PUSHPULLFLAGS [-o Calc.java Calc.y]])
+AT_BISON_CHECK([PUSHPULLFLAG [-o Calc.java Calc.y]])
 AT_JAVA_COMPILE([[Calc.java]])
 # Verify that this is a push parser
-AT_CHECK_JAVA_GREP([[Calc.java]],[[.*public void push_parse_initialize().*]])
-# Capture the output so we can edit out the (line nnnn) occurrences
-AT_JAVA_PARSER_CHECK([Calc input], 0, [], [stderr-nolog])
-AT_CHECK([[sed -e 's/(line[ ][0-9][0-9]*)[,]/,/' stderr]],[ignore],[expout])
+AT_CHECK_JAVA_GREP([[Calc.java]],
+                   [[.*public void push_parse_initialize().*]])
+# Capture the  stdout and stderr output for comparison purposes.
+AT_JAVA_PARSER_CHECK([Calc input], 0, [stdout-nolog], [stderr-nolog])
+# 1. Check that the token locations are correct
+AT_CHECK([[cp -f ./locations ./expout]],[ignore],[ignore-nolog],[ignore-nolog])
+AT_CHECK([[sed -e '/^Next token.*$/p' -e d ./stderr]],[ignore],[expout],[ignore-nolog])
+# 2. Check that the calculator output matches that of a pull parser
+AT_CHECK([[rm -f ./expout; cp -f ./output ./expout]],[ignore],[ignore-nolog],[ignore-nolog])
+AT_CHECK([[cat ./stdout]],[ignore],[expout],[ignore-nolog])
 AT_CLEANUP
+

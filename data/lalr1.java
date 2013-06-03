@@ -29,31 +29,36 @@ m4_define([b4_symbol_no_destructor_assert],
                         [b4_skeleton],
                         [b4_symbol_action_location([$1], [destructor])])])])
 b4_symbol_foreach([b4_symbol_no_destructor_assert])
-b4_percent_define_default([[api.push-pull]], [[pull]])dnl
+
+# Setup some macros for api.push-pull.
+b4_percent_define_default([[api.push-pull]], [[pull]])
 b4_percent_define_check_values([[[[api.push-pull]],
-                                 [[pull]], [[push]], [[both]]]])dnl
-b4_define_flag_if([pull]) m4_define([b4_pull_flag], [[1]])dnl
-b4_define_flag_if([push]) m4_define([b4_push_flag], [[1]])dnl
+                                 [[pull]], [[push]], [[both]]]])
+
+# Define m4 conditional macros that encode the value
+# of the api.push-pull flag.
+b4_define_flag_if([pull]) m4_define([b4_pull_flag], [[1]])
+b4_define_flag_if([push]) m4_define([b4_push_flag], [[1]])
 m4_case(b4_percent_define_get([[api.push-pull]]),
         [pull], [m4_define([b4_push_flag], [[0]])],
-        [push], [m4_define([b4_pull_flag], [[0]])])dnl
+        [push], [m4_define([b4_pull_flag], [[0]])])
+
+# Define a macro to be true when api.push-pull has the value "both".
+m4_define([b4_both_if],[b4_push_if([b4_pull_if([$1],[$2])],[$2])])
 
 # Handle BISON_USE_PUSH_FOR_PULL for the test suite.  So that push parsing
 # tests function as written, do not let BISON_USE_PUSH_FOR_PULL modify the
 # behavior of Bison at all when push parsing is already requested.
-b4_define_flag_if([use_push_for_pull])dnl
+b4_define_flag_if([use_push_for_pull])
 b4_use_push_for_pull_if([
   b4_push_if([m4_define([b4_use_push_for_pull_flag], [[0]])],
              [m4_define([b4_push_flag], [[1]])])])
-
-# Define a macro to be true when api.push-pull has the value "both"
-m4_define([b4_both_if],[b4_push_if([b4_pull_if([$1],[$2])],[$2])])dnl
 
 # Define a macro to encapsulate the parse state variables.
 # This allows them to be defined either in parse() when doing
 # pull parsing, or as class instance variable when doing push parsing.
 m4_define([b4_define_state],[[
-    /// Lookahead and lookahead in internal form.
+    /* Lookahead and lookahead in internal form.  */
     int yychar = yyempty_;
     int yytoken = 0;
 
@@ -66,13 +71,13 @@ m4_define([b4_define_state],[[
 
     /* Error handling.  */
     int yynerrs_ = 0;
-    ]b4_locations_if([/// The location where the error started.
+    ]b4_locations_if([/* The location where the error started.  */
     b4_location_type yyerrloc = null;
 
-    /// b4_location_type of the lookahead.
+    /* Location. */
     b4_location_type yylloc = new b4_location_type (null, null);])[
 
-    /// Semantic value of the lookahead.
+    /* Semantic value of the lookahead.  */
     ]b4_yystype[ yylval = null;
 ]])
 
@@ -101,7 +106,9 @@ b4_percent_define_get3([implements], [ implements ])[
 {
   ]b4_identification[
 ]b4_error_verbose_if([[
-  /** True if verbose error messages are enabled.  */
+  /**
+   * True if verbose error messages are enabled.
+   */
   private boolean yyErrorVerbose = true;
 
   /**
@@ -122,18 +129,24 @@ b4_locations_if([[
    * A class defining a pair of positions.  Positions, defined by the
    * <code>]b4_position_type[</code> class, denote a point in the input.
    * Locations represent a part of the input through the beginning
-   * and ending positions.  */
+   * and ending positions.
+   */
   public class ]b4_location_type[ {
-    /** The first, inclusive, position in the range.  */
+    /**
+     * The first, inclusive, position in the range.
+     */
     public ]b4_position_type[ begin;
 
-    /** The first position beyond the range.  */
+    /**
+     * The first position beyond the range.
+     */
     public ]b4_position_type[ end;
 
     /**
      * Create a <code>]b4_location_type[</code> denoting an empty range located at
      * a given point.
-     * @@param loc The position at which the range is anchored.  */
+     * @@param loc The position at which the range is anchored.
+     */
     public ]b4_location_type[ (]b4_position_type[ loc) {
       this.begin = this.end = loc;
     }
@@ -141,7 +154,8 @@ b4_locations_if([[
     /**
      * Create a <code>]b4_location_type[</code> from the endpoints of the range.
      * @@param begin The first position included in the range.
-     * @@param end   The first position beyond the range.  */
+     * @@param end   The first position beyond the range.
+     */
     public ]b4_location_type[ (]b4_position_type[ begin, ]b4_position_type[ end) {
       this.begin = begin;
       this.end = end;
@@ -150,7 +164,8 @@ b4_locations_if([[
     /**
      * Print a representation of the location.  For this to be correct,
      * <code>]b4_position_type[</code> should override the <code>equals</code>
-     * method.  */
+     * method.
+     */
     public String toString () {
       if (begin.equals (end))
         return begin.toString ();
@@ -182,24 +197,28 @@ b4_locations_if([[
 
     ]b4_locations_if([[/**
      * Method to retrieve the beginning position of the last scanned token.
-     * @@return the position at which the last scanned token starts.  */
+     * @@return the position at which the last scanned token starts.
+     */
     ]b4_position_type[ getStartPos ();
 
     /**
      * Method to retrieve the ending position of the last scanned token.
-     * @@return the first position beyond the last scanned token.  */
+     * @@return the first position beyond the last scanned token.
+     */
     ]b4_position_type[ getEndPos ();]])[
 
     /**
      * Method to retrieve the semantic value of the last scanned token.
-     * @@return the semantic value of the last scanned token.  */
+     * @@return the semantic value of the last scanned token.
+     */
     ]b4_yystype[ getLVal ();
 
     /**
      * Entry point for the scanner.  Returns the token identifier corresponding
      * to the next token and prepares to return the semantic value
      * ]b4_locations_if([and beginning/ending positions ])[of the token.
-     * @@return the token identifier corresponding to the next token. */
+     * @@return the token identifier corresponding to the next token.
+     */
     int yylex () ]b4_maybe_throws([b4_lex_throws])[;
 
     /**
@@ -208,7 +227,8 @@ b4_locations_if([[
      *
      * ]b4_locations_if([[@@param loc The location of the element to which the
      *                error message is related]])[
-     * @@param msg The string for the error message.  */
+     * @@param msg The string for the error message.
+     */
      void yyerror (]b4_locations_if([b4_location_type[ loc, ]])[String msg);]
   }
 
@@ -216,7 +236,9 @@ b4_locations_if([[
 ]b4_percent_code_get([[lexer]])[
   }
 
-  ]])[/** The object doing lexical analysis for us.  */
+  ]])[/**
+   * The object doing lexical analysis for us.
+   */
   private Lexer yylexer;
   ]
   b4_parse_param_vars
@@ -382,12 +404,14 @@ b4_lexer_if([[
 
   /**
    * Returned by a Bison action in order to stop the parsing process and
-   * return success (<tt>true</tt>).  */
+   * return success (<tt>true</tt>).
+   */
   public static final int YYACCEPT = 0;
 
   /**
    * Returned by a Bison action in order to stop the parsing process and
-   * return failure (<tt>false</tt>).  */
+   * return failure (<tt>false</tt>).
+   */
   public static final int YYABORT = 1;
 
 ]b4_push_if([
@@ -398,18 +422,21 @@ b4_lexer_if([[
 
   /**
    * Returned by a Bison action in order to start error recovery without
-   * printing an error message.  */
+   * printing an error message.
+   */
   public static final int YYERROR = 2;
 
-  // Internal return codes that are not supported for user semantic
-  // actions.
+  /**
+   * Internal return codes that are not supported for user semantic
+   * actions.
+   */
   private static final int YYERRLAB = 3;
   private static final int YYNEWSTATE = 4;
   private static final int YYDEFAULT = 5;
   private static final int YYREDUCE = 6;
   private static final int YYERRLAB1 = 7;
   private static final int YYRETURN = 8;
-]b4_push_if([  private static final int YYGETTOKEN = 9;])[
+]b4_push_if([[  private static final int YYGETTOKEN = 9; /* Signify that a new token is expected when doing push-parsing.  */]])[
 
   private int yyerrstatus_ = 0;
 
@@ -418,7 +445,8 @@ b4_define_state])[
   /**
    * Return whether error recovery is being done.  In this state, the parser
    * reads token until it reaches a known state, and then restarts normal
-   * operation.  */
+   * operation.
+   */
   public final boolean recovering ()
   {
     return yyerrstatus_ == 0;
@@ -431,7 +459,6 @@ b4_define_state])[
 
     /* If YYLEN is nonzero, implement the default value of the action:
        `$$ = $1'.  Otherwise, use the top of the stack.
-
        Otherwise, the following line sets YYVAL to garbage.
        This behavior is undocumented and Bison
        users should not rely upon it.  */
@@ -518,7 +545,7 @@ b4_define_state])[
               + (yyvaluep == null ? "(null)" : yyvaluep.toString ()) + ")");
   }
 
-]b4_push_if([],[
+]b4_push_if([],[[
   /**
    * Parse input from the scanner that was specified at object construction
    * time.  Return whether the end of the input was reached successfully.
@@ -526,21 +553,21 @@ b4_define_state])[
    * @@return <tt>true</tt> if the parsing succeeds.  Note that this does not
    *          imply that there were no syntax errors.
    */
-   public boolean parse () b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])])[
+   public boolean parse () ]b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])[]])[
 ]b4_push_if([
   /**
    * Push Parse input from external lexer
    *
    * @@param yylextoken current token
    * @@param yylexval current lval
-b4_locations_if([   * @@param yylexloc current position])
+]b4_locations_if([   * @@param yylexloc current position])[
    *
    * @@return <tt>YYACCEPT, YYABORT, YYMORE</tt>
    */
   public int push_parse (int yylextoken, b4_yystype yylexval[]b4_locations_if([, b4_location_type yylexloc]))
       b4_maybe_throws([b4_list2([b4_lex_throws], [b4_throws])])])[
   {
-    ]b4_locations_if([/// @@$.
+    ]b4_locations_if([/* @@$.  */
     b4_location_type yyloc;])[
 ]b4_push_if([],[[
 ]b4_define_state[
@@ -557,21 +584,21 @@ b4_dollar_popdef[]dnl
 ])[
 ]])[
 ]b4_push_if([[
-    boolean push_token_consumed = true;
-
-    if (!push_parse_initialized)
+    if (!this.push_parse_initialized)
       {
         push_parse_initialize ();
-        yycdebug ("Starting parse\n");
-        yyerrstatus_ = 0;
-      } else
-        label = YYGETTOKEN;
 ]m4_ifdef([b4_initial_action], [
 b4_dollar_pushdef([yylval], [], [yylloc])dnl
     /* User initialization code.  */
     b4_user_initial_action
 b4_dollar_popdef[]dnl
 ])[
+        yycdebug ("Starting parse\n");
+        yyerrstatus_ = 0;
+      } else
+        label = YYGETTOKEN;
+
+    boolean push_token_consumed = true;
 ]])[
     for (;;)
       switch (label)
@@ -585,7 +612,8 @@ b4_dollar_popdef[]dnl
 
         /* Accept?  */
         if (yystate == yyfinal_)
-         ]b4_push_if([{label = YYACCEPT; break;}],[return true;])[
+]b4_push_if([{label = YYACCEPT; break;}],dnl
+            [return true;])[
 
         /* Take a decision.  First try without lookahead.  */
         yyn = yypact_[yystate];
@@ -769,7 +797,7 @@ b4_dollar_popdef[]dnl
           }
 
         if (label == YYABORT)
-            /* leave the switch */
+            /* Leave the switch.  */
             break;
 
         ]b4_locations_if([
@@ -790,22 +818,24 @@ b4_dollar_popdef[]dnl
 
         /* Accept.  */
       case YYACCEPT:
-        ]b4_push_if([push_parse_initialized = false; return YYACCEPT;],
+        ]b4_push_if([this.push_parse_initialized = false; return YYACCEPT;],
                     [return true;])[
 
         /* Abort.  */
       case YYABORT:
-        ]b4_push_if([push_parse_initialized = false; return YYABORT;],
+        ]b4_push_if([this.push_parse_initialized = false; return YYABORT;],
                     [return false;])[
       }
 }
 ]b4_push_if([[
   boolean push_parse_initialized = false;
 
+    /**
+     * (Re-)Initialize the state of the push parser.
+     */
   public void push_parse_initialize()
   {
-    // (Re-)Initialize the state
-    /// Lookahead and lookahead in internal form.
+    /* Lookahead and lookahead in internal form.  */
     this.yychar = yyempty_;
     this.yytoken = 0;
 
@@ -818,19 +848,21 @@ b4_dollar_popdef[]dnl
 
     /* Error handling.  */
     this.yynerrs_ = 0;
-    ]b4_locations_if([/// The location where the error started.
+    ]b4_locations_if([/* The location where the error started.  */
     this.yyerrloc = null;
     this.yylloc = new b4_location_type (null, null);])[
 
-    /// Semantic value of the lookahead.
+    /* Semantic value of the lookahead.  */
     this.yylval = null;
 
     yystack.push (this.yystate, this.yylval]b4_locations_if([, this.yylloc])[);
-    push_parse_initialized = true;
+
+    this.push_parse_initialized = true;
+
   }
 ]b4_locations_if([
   /**
-   * Push Parse input from external lexer
+   * Push parse given input from an external lexer.
    *
    * @@param yylextoken current token
    * @@param yylexval current lval
@@ -849,7 +881,7 @@ b4_both_if([[
   /**
    * Parse input from the scanner that was specified at object construction
    * time.  Return whether the end of the input was reached successfully.
-   * This version of parse () is defined only when api.push-push=both
+   * This version of parse () is defined only when api.push-push=both.
    *
    * @@return <tt>true</tt> if the parsing succeeds.  Note that this does not
    *          imply that there were no syntax errors.
@@ -906,8 +938,8 @@ b4_both_if([[
         */
         if (tok != yyempty_)
           {
-            // FIXME: This method of building the message is not compatible
-            // with internationalization.
+            /* FIXME: This method of building the message is not compatible
+               with internationalization.  */
             StringBuffer res =
               new StringBuffer ("syntax error, unexpected ");
             res.append (yytnamerr_ (yytname_[tok]));
@@ -956,8 +988,9 @@ b4_both_if([[
   }
 
   /**
-   * Whether the given <code>yytable_</code> value indicates a syntax error.
-   * @@param yyvalue   the value to check
+   * Whether the given <code>yytable_</code>
+   * value indicates a syntax error.
+   * @@param yyvalue the value to check
    */
   private static boolean yy_table_value_is_error_ (int yyvalue)
   {

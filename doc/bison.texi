@@ -11692,13 +11692,17 @@ There is one additional complication.
 Technically, the push parser does not need to know about the scanner
 (i.e. an object implementing the @code{YYParser.Lexer} interface),
 but it does need access to the @code{yyerror} method.
+Currently, the @code{yyerror} method is defined in the @code{YYParser.Lexer}
+interface. Hence, an implementation of that interface is still required
+in order to provide an implementation of @code{yyerror}.
 The current approach (and subject to change) is to require
 the @code{YYParser} constructor to be given an object implementing
 the @code{YYParser.Lexer} interface. This object need only
 implement the @code{yyerror} method; the other methods can be stubbed
 since they will never be invoked.
-The simplest way to do this is to add code like this to your
-.y file.
+The simplest way to do this is to add a trivial scanner implementation
+to your grammar file using whatever implementation of @code{yyerror} is
+desired. The following code sample shows a simple way to accomplish this.
 
 @example
 %code lexer @{
