@@ -89,7 +89,7 @@ m4_define([AT_TRIVIAL_COMMON],[
     System.err.println("teststate="+teststatename[[teststate]]
                        +"; expected="+teststatename[[expected]]);
     if (teststate == expected)
-	return;
+        return;
     System.err.println("unexpected state: "+msg);
     System.exit(1);
   }
@@ -258,7 +258,7 @@ input:
 line:
   '\n'
 | exp '\n'
-	{System.out.println("total = "+$[]1);}
+        {System.out.println("total = "+$[]1);}
 | error '\n'
 ;
 
