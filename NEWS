@@ -524,7 +524,7 @@ GNU Bison NEWS
   and "%define init_throws".
   Contributed by Paolo Bonzini.
 
-  The java skeleton, data/lalr1.java, now supports push parsing.
+  The Java skeleton now supports push parsing.
   Contributed by Dennis Heimbigner.
 
 ** C++ skeletons improvements
