@@ -26,7 +26,7 @@
 # YYTYPE.
 m4_define([b4_symbol_variant],
 [m4_pushdef([b4_dollar_dollar],
-            [$2.$3< $][3 >(m4_shift3($@))])dnl
+            [$2.$3< $][3 > (m4_shift3($@))])dnl
   switch ($1)
     {
 b4_type_foreach([b4_type_action_])[]dnl
@@ -63,7 +63,7 @@ m4_define([b4_char_sizeof],
 [b4_symbol_if([$1], [has_type],
 [
 m4_map([      b4_symbol_tag_comment], [$@])dnl
-      char _b4_char_sizeof_dummy@{sizeof([b4_symbol([$1], [type])])@};
+      char _b4_char_sizeof_dummy@{sizeof(b4_symbol([$1], [type]))@};
 ])])
 
 
@@ -95,22 +95,22 @@ m4_define([b4_variant_define],
 
     /// Empty construction.
     variant ()]b4_parse_assert_if([
-      : tname (YY_NULL)])[
+      : yytname_ (YY_NULL)])[
     {}
 
     /// Construct and fill.
     template <typename T>
     variant (const T& t)]b4_parse_assert_if([
-      : tname (typeid (T).name ())])[
+      : yytname_ (typeid (T).name ())])[
     {
       YYASSERT (sizeof (T) <= S);
-      new (buffer.raw) T (t);
+      new (yyas_<T> ()) T (t);
     }
 
     /// Destruction, allowed only if empty.
     ~variant ()
     {]b4_parse_assert_if([
-      YYASSERT (!tname);
+      YYASSERT (!yytname_);
     ])[}
 
     /// Instantiate an empty \a T in here.
@@ -118,10 +118,10 @@ m4_define([b4_variant_define],
     T&
     build ()
     {]b4_parse_assert_if([
-      YYASSERT (!tname);
+      YYASSERT (!yytname_);
       YYASSERT (sizeof (T) <= S);
-      tname = typeid (T).name ();])[
-      return *new (buffer.raw) T;
+      yytname_ = typeid (T).name ();])[
+      return *new (yyas_<T> ()) T;
     }
 
     /// Instantiate a \a T in here from \a t.
@@ -129,10 +129,10 @@ m4_define([b4_variant_define],
     T&
     build (const T& t)
     {]b4_parse_assert_if([
-      YYASSERT (!tname);
+      YYASSERT (!yytname_);
       YYASSERT (sizeof (T) <= S);
-      tname = typeid (T).name ();])[
-      return *new (buffer.raw) T (t);
+      yytname_ = typeid (T).name ();])[
+      return *new (yyas_<T> ()) T (t);
     }
 
     /// Accessor to a built \a T.
@@ -140,12 +140,9 @@ m4_define([b4_variant_define],
     T&
     as ()
     {]b4_parse_assert_if([
-      YYASSERT (tname == typeid (T).name ());
+      YYASSERT (yytname_ == typeid (T).name ());
       YYASSERT (sizeof (T) <= S);])[
-      {
-        void *dummy = buffer.raw;
-        return *static_cast<T*> (dummy);
-      }
+      return *yyas_<T> ();
     }
 
     /// Const accessor to a built \a T (for %printer).
@@ -153,12 +150,9 @@ m4_define([b4_variant_define],
     const T&
     as () const
     {]b4_parse_assert_if([
-      YYASSERT (tname == typeid (T).name ());
+      YYASSERT (yytname_ == typeid (T).name ());
       YYASSERT (sizeof (T) <= S);])[
-      {
-        const void *dummy = buffer.raw;
-        return *static_cast<const T*> (dummy);
-      }
+      return *yyas_<T> ();
     }
 
     /// Swap the content with \a other, of same type.
@@ -173,9 +167,9 @@ m4_define([b4_variant_define],
     void
     swap (self_type& other)
     {]b4_parse_assert_if([
-      YYASSERT (tname);
-      YYASSERT (tname == other.tname);])[
-      std::swap (as<T>(), other.as<T>());
+      YYASSERT (yytname_);
+      YYASSERT (yytname_ == other.yytname_);])[
+      std::swap (as<T> (), other.as<T> ());
     }
 
     /// Move the content of \a other to this.
@@ -185,10 +179,10 @@ m4_define([b4_variant_define],
     void
     move (self_type& other)
     {]b4_parse_assert_if([
-      YYASSERT (!tname);])[
-      build<T>();
-      swap<T>(other);
-      other.destroy<T>();
+      YYASSERT (!yytname_);])[
+      build<T> ();
+      swap<T> (other);
+      other.destroy<T> ();
     }
 
     /// Copy the content of \a other to this.
@@ -205,7 +199,7 @@ m4_define([b4_variant_define],
     destroy ()
     {
       as<T> ().~T ();]b4_parse_assert_if([
-      tname = YY_NULL;])[
+      yytname_ = YY_NULL;])[
     }
 
   private:
@@ -213,17 +207,34 @@ m4_define([b4_variant_define],
     self_type& operator=(const self_type&);
     variant (const self_type&);
 
-    /// A buffer large enough to store any of the semantic values.
-    /// Long double is chosen as it has the strongest alignment
-    /// constraints.
+    /// Accessor to raw memory as \a T.
+    template <typename T>
+    T*
+    yyas_ ()
+    {
+      void *yyp = yybuffer_.yyraw;
+      return static_cast<T*> (yyp);
+     }
+
+    /// Const accessor to raw memory as \a T.
+    template <typename T>
+    const T*
+    yyas_ () const
+    {
+      const void *yyp = yybuffer_.yyraw;
+      return static_cast<const T*> (yyp);
+     }
+
     union
     {
-      long double align_me;
-      char raw[S];
-    } buffer;]b4_parse_assert_if([
+      /// Strongest alignment constraints.
+      long double yyalign_me;
+      /// A buffer large enough to store any of the semantic values.
+      char yyraw[S];
+    } yybuffer_;]b4_parse_assert_if([
 
     /// Whether the content is built: if defined, the name of the stored type.
-    const char *tname;])[
+    const char *yytname_;])[
   };
 ]])
 
@@ -233,16 +244,16 @@ m4_define([b4_variant_define],
 ## -------------------------- ##
 
 
-# b4_semantic_type_declare
-# ------------------------
+# b4_value_type_declare
+# ---------------------
 # Declare semantic_type.
-m4_define([b4_semantic_type_declare],
-[    /// An auxiliary type to compute the largest semantic type.
+m4_define([b4_value_type_declare],
+[[    /// An auxiliary type to compute the largest semantic type.
     union union_type
     {]b4_type_foreach([b4_char_sizeof])[};
 
     /// Symbol semantic values.
-    typedef variant<sizeof(union_type)> semantic_type;dnl
+    typedef variant<sizeof(union_type)> semantic_type;][]dnl
 ])
 
 
@@ -252,7 +263,7 @@ m4_define([b4_semantic_type_declare],
 # ----------------------------
 m4_define([b4_symbol_value],
 [m4_ifval([$2],
-          [$1.as< $2 >()],
+          [$1.as< $2 > ()],
           [$1])])
 
 # b4_symbol_value_template(VAL, [TYPE])
@@ -260,7 +271,7 @@ m4_define([b4_symbol_value],
 # Same as b4_symbol_value, but used in a template method.
 m4_define([b4_symbol_value_template],
 [m4_ifval([$2],
-          [$1.template as< $2 >()],
+          [$1.template as< $2 > ()],
           [$1])])
 
 
@@ -317,7 +328,7 @@ b4_join(b4_symbol_if([$1], [has_type],
 
 
 # b4_basic_symbol_constructor_declare
-# ----------------------------------
+# -----------------------------------
 # Generate a constructor declaration for basic_symbol from given type.
 m4_define([b4_basic_symbol_constructor_declare],
 [[

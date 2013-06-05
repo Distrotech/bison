@@ -93,16 +93,14 @@ rule_rhs_length (rule const *r)
 void
 rule_rhs_print (rule const *r, FILE *out)
 {
-  if (*r->rhs >= 0)
+  if (0 <= *r->rhs)
     {
       item_number *rp;
       for (rp = r->rhs; *rp >= 0; rp++)
         fprintf (out, " %s", symbols[*rp]->tag);
     }
   else
-    {
-      fprintf (out, " /* %s */", _("empty"));
-    }
+    fputs (" %empty", out);
 }
 
 static void
@@ -123,13 +121,6 @@ rule_rhs_print_xml (rule const *r, FILE *out, int level)
       xml_puts (out, level + 1, "<empty/>");
       xml_puts (out, level, "</rhs>");
     }
-}
-
-static void
-rule_print (rule const *r, FILE *out)
-{
-  fprintf (out, "%s:", r->lhs->tag);
-  rule_rhs_print (r, out);
 }
 
 void
@@ -289,8 +280,8 @@ grammar_dump (FILE *out, const char *title)
     rule_number r;
     for (r = 0; r < nrules + nuseless_productions; r++)
       {
-        fprintf (out, "%-5d  ", r);
-        rule_print (&rules[r], out);
+        fprintf (out, "%-5d  %s:", r, rules[r].lhs->tag);
+        rule_rhs_print (&rules[r], out);
         fprintf (out, "\n");
       }
   }
@@ -300,24 +291,10 @@ grammar_dump (FILE *out, const char *title)
 void
 grammar_rules_useless_report (const char *message)
 {
-  warnings w = Wother;
-  if (warnings_flag & w)
-    {
-      rule_number r;
-      for (r = 0; r < nrules ; ++r)
-        if (!rules[r].useful)
-          {
-            if (feature_flag & feature_caret)
-              complain (&rules[r].location, w, "%s", message);
-            else
-              {
-                complain (&rules[r].location, w | silent, "%s: ", message);
-                rule_print (&rules[r], stderr);
-                warnings_print_categories (w);
-                fprintf (stderr, "\n");
-              }
-          }
-    }
+  rule_number r;
+  for (r = 0; r < nrules ; ++r)
+    if (!rules[r].useful)
+      complain (&rules[r].location, Wother, "%s", message);
 }
 
 void

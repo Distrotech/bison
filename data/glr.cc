@@ -43,12 +43,6 @@
 #   user must initialize the first positions (in particular the
 #   filename member).
 
-b4_token_ctor_if([b4_variant_if([],
-  [b4_fatal_at(b4_percent_define_get_loc(api.token.constructor),
-               [cannot use '%s' without '%s'],
-               [%define api.token.constructor],
-               [%define api.value.type variant]))])])
-
 # We require a pure interface.
 m4_define([b4_pure_flag],      [1])
 
@@ -193,12 +187,7 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
     std::ostream& yyoutput = debug_stream ();
     std::ostream& yyo = yyoutput;
     YYUSE (yyo);
-    switch (yytype)
-      {
-]b4_symbol_foreach([b4_symbol_printer])dnl
-[        default:
-          break;
-      }
+    ]b4_symbol_actions([printer])[
   }
 
 

@@ -321,7 +321,7 @@ grammar_rule_check (const symbol_list *r)
         bool midrule_warning = false;
         if (!l->action_props.is_value_used
             && symbol_should_be_used (l, &midrule_warning)
-            /* The default action, $$ = $1, `uses' both.  */
+            /* The default action, $$ = $1, 'uses' both.  */
             && (r->action_props.code || (n != 0 && n != 1)))
           {
             warnings warn_flag = midrule_warning ? Wmidrule_values : Wother;
@@ -332,6 +332,18 @@ grammar_rule_check (const symbol_list *r)
           }
       }
   }
+
+  /* Check that %empty => empty rule.  */
+  if (r->percent_empty_loc.start.file
+      && r->next && r->next->content.sym)
+    complain (&r->percent_empty_loc, complaint,
+              _("%%empty on non-empty rule"));
+
+  /* Check that empty rule => %empty.  */
+  if (!(r->next && r->next->content.sym)
+      && !r->midrule_parent_rule
+      && !r->percent_empty_loc.start.file)
+    complain (&r->location, Wempty_rule, _("empty rule without %%empty"));
 
   /* See comments in grammar_current_rule_prec_set for how POSIX
      mandates this complaint.  It's only for identifiers, so skip
@@ -430,8 +442,26 @@ grammar_current_rule_prec_set (symbol *precsym, location loc)
      token.  */
   symbol_class_set (precsym, token_sym, loc, false);
   if (current_rule->ruleprec)
-    complain (&loc, complaint, _("only one %s allowed per rule"), "%prec");
-  current_rule->ruleprec = precsym;
+    duplicate_directive ("%prec",
+                         current_rule->ruleprec->location, loc);
+  else
+    current_rule->ruleprec = precsym;
+}
+
+/* Set %empty for the current rule. */
+
+void
+grammar_current_rule_empty_set (location loc)
+{
+  /* If %empty is used and -Wno-empty-rule is not, then enable
+     -Wempty-rule.  */
+  if (warning_is_unset (Wempty_rule))
+    warning_argmatch ("empty-rule", 0, 0);
+  if (current_rule->percent_empty_loc.start.file)
+    duplicate_directive ("%empty",
+                         current_rule->percent_empty_loc, loc);
+  else
+    current_rule->percent_empty_loc = loc;
 }
 
 /* Attach dynamic precedence DPREC to the current rule. */
@@ -446,8 +476,13 @@ grammar_current_rule_dprec_set (int dprec, location loc)
     complain (&loc, complaint, _("%s must be followed by positive number"),
               "%dprec");
   else if (current_rule->dprec != 0)
-    complain (&loc, complaint, _("only one %s allowed per rule"), "%dprec");
-  current_rule->dprec = dprec;
+    duplicate_directive ("%dprec",
+                         current_rule->dprec_location, loc);
+  else
+    {
+      current_rule->dprec = dprec;
+      current_rule->dprec_location = loc;
+    }
 }
 
 /* Attach a merge function NAME with argument type TYPE to current
@@ -460,9 +495,13 @@ grammar_current_rule_merge_set (uniqstr name, location loc)
     complain (&loc, Wother, _("%s affects only GLR parsers"),
               "%merge");
   if (current_rule->merger != 0)
-    complain (&loc, complaint, _("only one %s allowed per rule"), "%merge");
-  current_rule->merger = get_merge_function (name);
-  current_rule->merger_declaration_location = loc;
+    duplicate_directive ("%merge",
+                         current_rule->merger_declaration_location, loc);
+  else
+    {
+      current_rule->merger = get_merge_function (name);
+      current_rule->merger_declaration_location = loc;
+    }
 }
 
 /* Attach SYM to the current rule.  If needed, move the previous
@@ -477,7 +516,7 @@ grammar_current_rule_symbol_append (symbol *sym, location loc,
     grammar_midrule_action ();
   p = grammar_symbol_append (sym, loc);
   if (name)
-    assign_named_ref(p, name);
+    assign_named_ref (p, name);
   if (sym->status == undeclared || sym->status == used)
     sym->status = needed;
 }
@@ -535,7 +574,7 @@ packgram (void)
       rules[ruleno].action_location = p->action_props.location;
       rules[ruleno].is_predicate = p->action_props.is_predicate;
 
-      /* If the midrule's $$ is set or its $n is used, remove the `$' from the
+      /* If the midrule's $$ is set or its $n is used, remove the '$' from the
          symbol name so that it's a user-defined symbol so that the default
          %destructor and %printer apply.  */
       if (p->midrule_parent_rule
@@ -712,7 +751,7 @@ check_and_convert_grammar (void)
   /* Insert the initial rule, whose line is that of the first rule
      (not that of the start symbol):
 
-     accept: %start EOF.  */
+     $accept: %start $end.  */
   {
     symbol_list *p = symbol_list_sym_new (accept, empty_location);
     p->location = grammar->location;
@@ -725,7 +764,8 @@ check_and_convert_grammar (void)
     grammar = p;
   }
 
-  aver (nsyms <= SYMBOL_NUMBER_MAXIMUM && nsyms == ntokens + nvars);
+  aver (nsyms <= SYMBOL_NUMBER_MAXIMUM);
+  aver (nsyms == ntokens + nvars);
 
   /* Assign the symbols their symbol numbers.  Write #defines for the
      token symbols into FDEFINES if requested.  */
@@ -736,11 +776,11 @@ check_and_convert_grammar (void)
      action type checking.
 
      Before invoking grammar_rule_check (in packgram below) on any rule, make
-     sure all actions have already been scanned in order to set `used' flags.
+     sure all actions have already been scanned in order to set 'used' flags.
      Otherwise, checking that a midrule's $$ should be set will not always work
      properly because the check must forward-reference the midrule's parent
-     rule.  For the same reason, all the `used' flags must be set before
-     checking whether to remove `$' from any midrule symbol name (also in
+     rule.  For the same reason, all the 'used' flags must be set before
+     checking whether to remove '$' from any midrule symbol name (also in
      packgram).  */
   {
     symbol_list *sym;

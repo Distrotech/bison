@@ -186,7 +186,6 @@ Bison Grammar Files
 * Grammar Outline::    Overall layout of the grammar file.
 * Symbols::            Terminal and nonterminal symbols.
 * Rules::              How to write grammar rules.
-* Recursion::          Writing recursive rules.
 * Semantics::          Semantic values and actions.
 * Tracking Locations:: Locations and actions.
 * Named References::   Using named references in actions.
@@ -201,10 +200,20 @@ Outline of a Bison Grammar
 * Grammar Rules::         Syntax and usage of the grammar rules section.
 * Epilogue::              Syntax and usage of the epilogue.
 
+Grammar Rules
+
+* Rules Syntax::   Syntax of the rules.
+* Empty Rules::    Symbols that can match the empty string.
+* Recursion::      Writing recursive rules.
+
+
 Defining Language Semantics
 
 * Value Type::        Specifying one data type for all semantic values.
 * Multiple Types::    Specifying several alternative data types.
+* Type Generation::   Generating the semantic value type.
+* Union Decl::        Declaring the set of all semantic value types.
+* Structured Value Type::  Providing a structured semantic value type.
 * Actions::           An action is the semantic definition of a grammar rule.
 * Action Types::      Specifying data types for actions to operate on.
 * Mid-Rule Actions::  Most actions go at the end of a rule.
@@ -228,7 +237,6 @@ Bison Declarations
 * Require Decl::      Requiring a Bison version.
 * Token Decl::        Declaring terminal symbols.
 * Precedence Decl::   Declaring terminals with precedence and associativity.
-* Union Decl::        Declaring the set of all semantic value types.
 * Type Decl::         Declaring the choice of type for a nonterminal symbol.
 * Initial Action Decl::  Code run before parsing starts.
 * Destructor Decl::   Declaring how symbols are freed.
@@ -1008,7 +1016,7 @@ Let's consider an example, vastly simplified from a C++ grammar.
 %%
 
 prog:
-  /* Nothing.  */
+  %empty
 | prog stmt   @{ printf ("\n"); @}
 ;
 
@@ -1541,7 +1549,6 @@ calculator.  As in C, comments are placed between @samp{/*@dots{}*/}.
 
 @group
 %@{
-  #define YYSTYPE double
   #include <stdio.h>
   #include <math.h>
   int yylex (void);
@@ -1549,6 +1556,7 @@ calculator.  As in C, comments are placed between @samp{/*@dots{}*/}.
 %@}
 @end group
 
+%define api.value.type @{double@}
 %token NUM
 
 %% /* Grammar rules and actions follow.  */
@@ -1556,14 +1564,6 @@ calculator.  As in C, comments are placed between @samp{/*@dots{}*/}.
 
 The declarations section (@pxref{Prologue, , The prologue}) contains two
 preprocessor directives and two forward declarations.
-
-The @code{#define} directive defines the macro @code{YYSTYPE}, thus
-specifying the C data type for semantic values of both tokens and
-groupings (@pxref{Value Type, ,Data Types of Semantic Values}).  The
-Bison parser will use whatever type @code{YYSTYPE} is defined as; if you
-don't define it, @code{int} is the default.  Because we specify
-@code{double}, each token and each expression has an associated value,
-which is a floating point number.
 
 The @code{#include} directive is used to declare the exponentiation
 function @code{pow}.
@@ -1574,14 +1574,24 @@ before they are used.  These functions will be defined in the
 epilogue, but the parser calls them so they must be declared in the
 prologue.
 
-The second section, Bison declarations, provides information to Bison
-about the token types (@pxref{Bison Declarations, ,The Bison
-Declarations Section}).  Each terminal symbol that is not a
-single-character literal must be declared here.  (Single-character
-literals normally don't need to be declared.)  In this example, all the
-arithmetic operators are designated by single-character literals, so the
-only terminal symbol that needs to be declared is @code{NUM}, the token
-type for numeric constants.
+The second section, Bison declarations, provides information to Bison about
+the tokens and their types (@pxref{Bison Declarations, ,The Bison
+Declarations Section}).
+
+The @code{%define} directive defines the variable @code{api.value.type},
+thus specifying the C data type for semantic values of both tokens and
+groupings (@pxref{Value Type, ,Data Types of Semantic Values}).  The Bison
+parser will use whatever type @code{api.value.type} is defined as; if you
+don't define it, @code{int} is the default.  Because we specify
+@samp{@{double@}}, each token and each expression has an associated value,
+which is a floating point number.  C code can use @code{YYSTYPE} to refer to
+the value @code{api.value.type}.
+
+Each terminal symbol that is not a single-character literal must be
+declared.  (Single-character literals normally don't need to be declared.)
+In this example, all the arithmetic operators are designated by
+single-character literals, so the only terminal symbol that needs to be
+declared is @code{NUM}, the token type for numeric constants.
 
 @node Rpcalc Rules
 @subsection Grammar Rules for @code{rpcalc}
@@ -1592,7 +1602,7 @@ Here are the grammar rules for the reverse polish notation calculator.
 @example
 @group
 input:
-  /* empty */
+  %empty
 | input line
 ;
 @end group
@@ -1649,7 +1659,7 @@ Consider the definition of @code{input}:
 
 @example
 input:
-  /* empty */
+  %empty
 | input line
 ;
 @end example
@@ -1664,8 +1674,9 @@ The first alternative is empty because there are no symbols between the
 colon and the first @samp{|}; this means that @code{input} can match an
 empty string of input (no tokens).  We write the rules this way because it
 is legitimate to type @kbd{Ctrl-d} right after you start the calculator.
-It's conventional to put an empty alternative first and write the comment
-@samp{/* empty */} in it.
+It's conventional to put an empty alternative first and to use the
+(optional) @code{%empty} directive, or to write the comment @samp{/* empty
+*/} in it (@pxref{Empty Rules}).
 
 The second alternate rule (@code{input line}) handles all nontrivial input.
 It means, ``After reading any number of lines, read one more line if
@@ -1794,9 +1805,9 @@ therefore, @code{NUM} becomes a macro for @code{yylex} to use.
 
 The semantic value of the token (if it has one) is stored into the
 global variable @code{yylval}, which is where the Bison parser will look
-for it.  (The C data type of @code{yylval} is @code{YYSTYPE}, which was
-defined at the beginning of the grammar; @pxref{Rpcalc Declarations,
-,Declarations for @code{rpcalc}}.)
+for it.  (The C data type of @code{yylval} is @code{YYSTYPE}, whose value
+was defined at the beginning of the grammar via @samp{%define api.value.type
+@{double@}}; @pxref{Rpcalc Declarations,,Declarations for @code{rpcalc}}.)
 
 A token type code of zero is returned if the end-of-input is encountered.
 (Bison recognizes any nonpositive value as indicating end-of-input.)
@@ -1985,7 +1996,6 @@ parentheses nested to arbitrary depth.  Here is the Bison code for
 
 @group
 %@{
-  #define YYSTYPE double
   #include <math.h>
   #include <stdio.h>
   int yylex (void);
@@ -1995,6 +2005,7 @@ parentheses nested to arbitrary depth.  Here is the Bison code for
 
 @group
 /* Bison declarations.  */
+%define api.value.type @{double@}
 %token NUM
 %left '-' '+'
 %left '*' '/'
@@ -2005,7 +2016,7 @@ parentheses nested to arbitrary depth.  Here is the Bison code for
 %% /* The grammar follows.  */
 @group
 input:
-  /* empty */
+  %empty
 | input line
 ;
 @end group
@@ -2144,13 +2155,13 @@ the same as the declarations for the infix notation calculator.
 /* Location tracking calculator.  */
 
 %@{
-  #define YYSTYPE int
   #include <math.h>
   int yylex (void);
   void yyerror (char const *);
 %@}
 
 /* Bison declarations.  */
+%define api.value.type @{int@}
 %token NUM
 
 %left '-' '+'
@@ -2185,7 +2196,7 @@ wrong expressions or subexpressions.
 @example
 @group
 input:
-  /* empty */
+  %empty
 | input line
 ;
 @end group
@@ -2397,21 +2408,16 @@ Here are the C and Bison declarations for the multi-function calculator.
 %@{
   #include <stdio.h>  /* For printf, etc. */
   #include <math.h>   /* For pow, used in the grammar.  */
-  #include "calc.h"   /* Contains definition of `symrec'.  */
+  #include "calc.h"   /* Contains definition of 'symrec'.  */
   int yylex (void);
   void yyerror (char const *);
 %@}
 @end group
 
-@group
-%union @{
-  double    val;   /* For returning numbers.  */
-  symrec  *tptr;   /* For returning symbol-table pointers.  */
-@}
-@end group
-%token <val>  NUM        /* Simple double precision number.  */
-%token <tptr> VAR FNCT   /* Variable and function.  */
-%type  <val>  exp
+%define api.value.type union /* Generate YYSTYPE from these types:  */
+%token <double>  NUM         /* Simple double precision number.  */
+%token <symrec*> VAR FNCT    /* Symbol table pointer: variable and function.  */
+%type  <double>  exp
 
 @group
 %precedence '='
@@ -2426,23 +2432,23 @@ The above grammar introduces only two new features of the Bison language.
 These features allow semantic values to have various data types
 (@pxref{Multiple Types, ,More Than One Value Type}).
 
-The @code{%union} declaration specifies the entire list of possible types;
-this is instead of defining @code{YYSTYPE}.  The allowable types are now
-double-floats (for @code{exp} and @code{NUM}) and pointers to entries in
-the symbol table.  @xref{Union Decl, ,The Collection of Value Types}.
+The special @code{union} value assigned to the @code{%define} variable
+@code{api.value.type} specifies that the symbols are defined with their data
+types.  Bison will generate an appropriate definition of @code{YYSTYPE} to
+store these values.
 
-Since values can now have various types, it is necessary to associate a
-type with each grammar symbol whose semantic value is used.  These symbols
-are @code{NUM}, @code{VAR}, @code{FNCT}, and @code{exp}.  Their
-declarations are augmented with information about their data type (placed
-between angle brackets).
+Since values can now have various types, it is necessary to associate a type
+with each grammar symbol whose semantic value is used.  These symbols are
+@code{NUM}, @code{VAR}, @code{FNCT}, and @code{exp}.  Their declarations are
+augmented with their data type (placed between angle brackets).  For
+instance, values of @code{NUM} are stored in @code{double}.
 
-The Bison construct @code{%type} is used for declaring nonterminal
-symbols, just as @code{%token} is used for declaring token types.  We
-have not used @code{%type} before because nonterminal symbols are
-normally declared implicitly by the rules that define them.  But
-@code{exp} must be declared explicitly so we can specify its value type.
-@xref{Type Decl, ,Nonterminal Symbols}.
+The Bison construct @code{%type} is used for declaring nonterminal symbols,
+just as @code{%token} is used for declaring token types.  Previously we did
+not use @code{%type} before because nonterminal symbols are normally
+declared implicitly by the rules that define them.  But @code{exp} must be
+declared explicitly so we can specify its value type.  @xref{Type Decl,
+,Nonterminal Symbols}.
 
 @node Mfcalc Rules
 @subsection Grammar Rules for @code{mfcalc}
@@ -2456,7 +2462,7 @@ those which mention @code{VAR} or @code{FNCT}, are new.
 %% /* The grammar follows.  */
 @group
 input:
-  /* empty */
+  %empty
 | input line
 ;
 @end group
@@ -2526,7 +2532,7 @@ struct symrec
 @group
 typedef struct symrec symrec;
 
-/* The symbol table: a chain of `struct symrec'.  */
+/* The symbol table: a chain of 'struct symrec'.  */
 extern symrec *sym_table;
 
 symrec *putsym (char const *, int);
@@ -2561,7 +2567,7 @@ struct init const arith_fncts[] =
 @end group
 
 @group
-/* The symbol table: a chain of `struct symrec'.  */
+/* The symbol table: a chain of 'struct symrec'.  */
 symrec *sym_table;
 @end group
 
@@ -2666,11 +2672,18 @@ yylex (void)
   if (c == '.' || isdigit (c))
     @{
       ungetc (c, stdin);
-      scanf ("%lf", &yylval.val);
+      scanf ("%lf", &yylval.NUM);
       return NUM;
     @}
 @end group
+@end example
 
+@noindent
+Bison generated a definition of @code{YYSTYPE} with a member named
+@code{NUM} to store value of @code{NUM} symbols.
+
+@comment file: mfcalc.y: 3
+@example
 @group
   /* Char starts an identifier => read the name.       */
   if (isalpha (c))
@@ -2712,7 +2725,7 @@ yylex (void)
       s = getsym (symbuf);
       if (s == 0)
         s = putsym (symbuf, VAR);
-      yylval.tptr = s;
+      *((symrec**) &yylval) = s;
       return s->type;
     @}
 
@@ -2790,7 +2803,6 @@ The Bison grammar file conventionally has a name ending in @samp{.y}.
 * Grammar Outline::    Overall layout of the grammar file.
 * Symbols::            Terminal and nonterminal symbols.
 * Rules::              How to write grammar rules.
-* Recursion::          Writing recursive rules.
 * Semantics::          Semantic values and actions.
 * Tracking Locations:: Locations and actions.
 * Named References::   Using named references in actions.
@@ -2970,7 +2982,7 @@ Let's go ahead and add the new @code{YYLTYPE} definition and the
   #include <stdio.h>
 
   /* WARNING: The following code really belongs
-   * in a `%code requires'; see below.  */
+   * in a '%code requires'; see below.  */
 
   #include "ptypes.h"
   #define YYLTYPE YYLTYPE
@@ -3408,7 +3420,18 @@ value of the error token is 256, unless you explicitly assigned 256 to
 one of your tokens with a @code{%token} declaration.
 
 @node Rules
-@section Syntax of Grammar Rules
+@section Grammar Rules
+
+A Bison grammar is a list of rules.
+
+@menu
+* Rules Syntax::   Syntax of the rules.
+* Empty Rules::    Symbols that can match the empty string.
+* Recursion::      Writing recursive rules.
+@end menu
+
+@node Rules Syntax
+@subsection Syntax of Grammar Rules
 @cindex rule syntax
 @cindex grammar rule syntax
 @cindex syntax of grammar rules
@@ -3482,33 +3505,57 @@ be joined with the vertical-bar character @samp{|} as follows:
 @noindent
 They are still considered distinct rules even when joined in this way.
 
-If @var{components} in a rule is empty, it means that @var{result} can
-match the empty string.  For example, here is how to define a
-comma-separated sequence of zero or more @code{exp} groupings:
+@node Empty Rules
+@subsection Empty Rules
+@cindex empty rule
+@cindex rule, empty
+@findex %empty
+
+A rule is said to be @dfn{empty} if its right-hand side (@var{components})
+is empty.  It means that @var{result} can match the empty string.  For
+example, here is how to define an optional semicolon:
+
+@example
+semicolon.opt: | ";";
+@end example
+
+@noindent
+It is easy not to see an empty rule, especially when @code{|} is used.  The
+@code{%empty} directive allows to make explicit that a rule is empty on
+purpose:
 
 @example
 @group
-expseq:
-  /* empty */
-| expseq1
-;
-@end group
-
-@group
-expseq1:
-  exp
-| expseq1 ',' exp
+semicolon.opt:
+  %empty
+| ";"
 ;
 @end group
 @end example
 
-@noindent
-It is customary to write a comment @samp{/* empty */} in each rule
-with no components.
+Flagging a non-empty rule with @code{%empty} is an error.  If run with
+@option{-Wempty-rule}, @command{bison} will report empty rules without
+@code{%empty}.  Using @code{%empty} enables this warning, unless
+@option{-Wno-empty-rule} was specified.
+
+The @code{%empty} directive is a Bison extension, it does not work with
+Yacc.  To remain compatible with POSIX Yacc, it is customary to write a
+comment @samp{/* empty */} in each rule with no components:
+
+@example
+@group
+semicolon.opt:
+  /* empty */
+| ";"
+;
+@end group
+@end example
+
 
 @node Recursion
-@section Recursive Rules
+@subsection Recursive Rules
 @cindex recursive rule
+@cindex rule, recursive
 
 A rule is called @dfn{recursive} when its @var{result} nonterminal
 appears also on its right hand side.  Nearly all Bison grammars need to
@@ -3596,6 +3643,9 @@ the numbers associated with @var{x} and @var{y}.
 @menu
 * Value Type::        Specifying one data type for all semantic values.
 * Multiple Types::    Specifying several alternative data types.
+* Type Generation::   Generating the semantic value type.
+* Union Decl::        Declaring the set of all semantic value types.
+* Structured Value Type::  Providing a structured semantic value type.
 * Actions::           An action is the semantic definition of a grammar rule.
 * Action Types::      Specifying data types for actions to operate on.
 * Mid-Rule Actions::  Most actions go at the end of a rule.
@@ -3617,17 +3667,38 @@ Notation Calculator}).
 
 Bison normally uses the type @code{int} for semantic values if your
 program uses the same data type for all language constructs.  To
-specify some other type, define @code{YYSTYPE} as a macro, like this:
+specify some other type, define the @code{%define} variable
+@code{api.value.type} like this:
+
+@example
+%define api.value.type @{double@}
+@end example
+
+@noindent
+or
+
+@example
+%define api.value.type @{struct semantic_type@}
+@end example
+
+The value of @code{api.value.type} should be a type name that does not
+contain parentheses or square brackets.
+
+Alternatively, instead of relying of Bison's @code{%define} support, you may
+rely on the C/C++ preprocessor and define @code{YYSTYPE} as a macro, like
+this:
 
 @example
 #define YYSTYPE double
 @end example
 
 @noindent
-@code{YYSTYPE}'s replacement list should be a type name
-that does not contain parentheses or square brackets.
 This macro definition must go in the prologue of the grammar file
-(@pxref{Grammar Outline, ,Outline of a Bison Grammar}).
+(@pxref{Grammar Outline, ,Outline of a Bison Grammar}).  If compatibility
+with POSIX Yacc matters to you, use this.  Note however that Bison cannot
+know @code{YYSTYPE}'s value, not even whether it is defined, so there are
+services it cannot provide.  Besides this works only for languages that have
+a preprocessor.
 
 @node Multiple Types
 @subsection More Than One Value Type
@@ -3643,11 +3714,25 @@ requires you to do two things:
 
 @itemize @bullet
 @item
-Specify the entire collection of possible data types, either by using the
-@code{%union} Bison declaration (@pxref{Union Decl, ,The Collection of
-Value Types}), or by using a @code{typedef} or a @code{#define} to
-define @code{YYSTYPE} to be a union type whose member names are
-the type tags.
+Specify the entire collection of possible data types.  There are several
+options:
+@itemize @bullet
+@item
+let Bison compute the union type from the tags you assign to symbols;
+
+@item
+use the @code{%union} Bison declaration (@pxref{Union Decl, ,The Union
+Declaration});
+
+@item
+define the @code{%define} variable @code{api.value.type} to be a union type
+whose members are the type tags (@pxref{Structured Value Type,, Providing a
+Structured Semantic Value Type});
+
+@item
+use a @code{typedef} or a @code{#define} to define @code{YYSTYPE} to be a
+union type whose member names are the type tags.
+@end itemize
 
 @item
 Choose one of those types for each symbol (terminal or nonterminal) for
@@ -3656,6 +3741,164 @@ which semantic values are used.  This is done for tokens with the
 and for groupings with the @code{%type} Bison declaration (@pxref{Type
 Decl, ,Nonterminal Symbols}).
 @end itemize
+
+@node Type Generation
+@subsection Generating the Semantic Value Type
+@cindex declaring value types
+@cindex value types, declaring
+@findex %define api.value.type union
+
+The special value @code{union} of the @code{%define} variable
+@code{api.value.type} instructs Bison that the tags used with the
+@code{%token} and @code{%type} directives are genuine types, not names of
+members of @code{YYSTYPE}.
+
+For example:
+
+@example
+%define api.value.type union
+%token <int> INT "integer"
+%token <int> 'n'
+%type <int> expr
+%token <char const *> ID "identifier"
+@end example
+
+@noindent
+generates an appropriate value of @code{YYSTYPE} to support each symbol
+type.  The name of the member of @code{YYSTYPE} for tokens than have a
+declared identifier @var{id} (such as @code{INT} and @code{ID} above, but
+not @code{'n'}) is @code{@var{id}}.  The other symbols have unspecified
+names on which you should not depend; instead, relying on C casts to access
+the semantic value with the appropriate type:
+
+@example
+/* For an "integer".  */
+yylval.INT = 42;
+return INT;
+
+/* For an 'n', also declared as int.  */
+*((int*)&yylval) = 42;
+return 'n';
+
+/* For an "identifier".  */
+yylval.ID = "42";
+return ID;
+@end example
+
+If the @code{%define} variable @code{api.token.prefix} is defined
+(@pxref{%define Summary,,api.token.prefix}), then it is also used to prefix
+the union member names.  For instance, with @samp{%define api.token.prefix
+@{TOK_@}}:
+
+@example
+/* For an "integer".  */
+yylval.TOK_INT = 42;
+return TOK_INT;
+@end example
+
+This Bison extension cannot work if @code{%yacc} (or
+@option{-y}/@option{--yacc}) is enabled, as POSIX mandates that Yacc
+generate tokens as macros (e.g., @samp{#define INT 258}, or @samp{#define
+TOK_INT 258}).
+
+This feature is new, and user feedback would be most welcome.
+
+A similar feature is provided for C++ that in addition overcomes C++
+limitations (that forbid non-trivial objects to be part of a @code{union}):
+@samp{%define api.value.type variant}, see @ref{C++ Variants}.
+
+@node Union Decl
+@subsection The Union Declaration
+@cindex declaring value types
+@cindex value types, declaring
+@findex %union
+
+The @code{%union} declaration specifies the entire collection of possible
+data types for semantic values.  The keyword @code{%union} is followed by
+braced code containing the same thing that goes inside a @code{union} in C@.
+
+For example:
+
+@example
+@group
+%union @{
+  double val;
+  symrec *tptr;
+@}
+@end group
+@end example
+
+@noindent
+This says that the two alternative types are @code{double} and @code{symrec
+*}.  They are given names @code{val} and @code{tptr}; these names are used
+in the @code{%token} and @code{%type} declarations to pick one of the types
+for a terminal or nonterminal symbol (@pxref{Type Decl, ,Nonterminal Symbols}).
+
+As an extension to POSIX, a tag is allowed after the @code{%union}.  For
+example:
+
+@example
+@group
+%union value @{
+  double val;
+  symrec *tptr;
+@}
+@end group
+@end example
+
+@noindent
+specifies the union tag @code{value}, so the corresponding C type is
+@code{union value}.  If you do not specify a tag, it defaults to
+@code{YYSTYPE}.
+
+As another extension to POSIX, you may specify multiple @code{%union}
+declarations; their contents are concatenated.  However, only the first
+@code{%union} declaration can specify a tag.
+
+Note that, unlike making a @code{union} declaration in C, you need not write
+a semicolon after the closing brace.
+
+@node Structured Value Type
+@subsection Providing a Structured Semantic Value Type
+@cindex declaring value types
+@cindex value types, declaring
+@findex %union
+
+Instead of @code{%union}, you can define and use your own union type
+@code{YYSTYPE} if your grammar contains at least one @samp{<@var{type}>}
+tag.  For example, you can put the following into a header file
+@file{parser.h}:
+
+@example
+@group
+union YYSTYPE @{
+  double val;
+  symrec *tptr;
+@};
+@end group
+@end example
+
+@noindent
+and then your grammar can use the following instead of @code{%union}:
+
+@example
+@group
+%@{
+#include "parser.h"
+%@}
+%define api.value.type @{union YYSTYPE@}
+%type <val> expr
+%token <tptr> ID
+@end group
+@end example
+
+Actually, you may also provide a @code{struct} rather that a @code{union},
+which may be handy if you want to track information for every symbol (such
+as preceding comments).
+
+The type you provide may even be structured and include pointers, in which
+case the type tags you provide may be composite, with @samp{.} and @samp{->}
+operators.
 
 @node Actions
 @subsection Actions
@@ -3758,7 +4001,7 @@ foo:
 
 @group
 bar:
-  /* empty */    @{ previous_expr = $0; @}
+  %empty    @{ previous_expr = $0; @}
 ;
 @end group
 @end example
@@ -3935,16 +4178,20 @@ declare a destructor for that symbol:
 @group
 %type <context> let
 %destructor @{ pop_context ($$); @} let
+@end group
 
 %%
 
+@group
 stmt:
   let stmt
     @{
       $$ = $2;
       pop_context ($let);
     @};
+@end group
 
+@group
 let:
   "let" '(' var ')'
     @{
@@ -3979,9 +4226,9 @@ exp: @{ a(); @} "b" @{ c(); @} @{ d(); @} "e" @{ f(); @};
 is translated into:
 
 @example
-$@@1: /* empty */ @{ a(); @};
-$@@2: /* empty */ @{ c(); @};
-$@@3: /* empty */ @{ d(); @};
+$@@1: %empty @{ a(); @};
+$@@2: %empty @{ c(); @};
+$@@3: %empty @{ d(); @};
 exp: $@@1 "b" $@@2 $@@3 "e" @{ f(); @};
 @end example
 
@@ -4000,9 +4247,9 @@ exp: @{ a(); @} "b" @{ $$ = c(); @} @{ d(); @} "e" @{ f = $1; @};
 is translated into
 
 @example
-@@1: /* empty */ @{ a(); @};
-@@2: /* empty */ @{ $$ = c(); @};
-$@@3: /* empty */ @{ d(); @};
+@@1: %empty @{ a(); @};
+@@2: %empty @{ $$ = c(); @};
+$@@3: %empty @{ d(); @};
 exp: @@1 "b" @@2 $@@3 "e" @{ f = $1; @}
 @end example
 
@@ -4111,7 +4358,7 @@ serves as a subroutine:
 @example
 @group
 subroutine:
-  /* empty */  @{ prepare_for_local_variables (); @}
+  %empty  @{ prepare_for_local_variables (); @}
 ;
 @end group
 
@@ -4218,8 +4465,7 @@ exp:
       else
         @{
           $$ = 1;
-          fprintf (stderr,
-                   "Division by zero, l%d,c%d-l%d,c%d",
+          fprintf (stderr, "%d.%d-%d.%d: division by zero",
                    @@3.first_line, @@3.first_column,
                    @@3.last_line, @@3.last_column);
         @}
@@ -4246,8 +4492,7 @@ exp:
       else
         @{
           $$ = 1;
-          fprintf (stderr,
-                   "Division by zero, l%d,c%d-l%d,c%d",
+          fprintf (stderr, "%d.%d-%d.%d: division by zero",
                    @@3.first_line, @@3.first_column,
                    @@3.last_line, @@3.last_column);
         @}
@@ -4455,7 +4700,6 @@ and Context-Free Grammars}).
 * Require Decl::      Requiring a Bison version.
 * Token Decl::        Declaring terminal symbols.
 * Precedence Decl::   Declaring terminals with precedence and associativity.
-* Union Decl::        Declaring the set of all semantic value types.
 * Type Decl::         Declaring the choice of type for a nonterminal symbol.
 * Initial Action Decl::  Code run before parsing starts.
 * Destructor Decl::   Declaring how symbols are freed.
@@ -4638,87 +4882,6 @@ For example:
 %left  OR 134 "<=" 135 // Declares 134 for OR and 135 for "<=".
 @end example
 
-@node Union Decl
-@subsection The Collection of Value Types
-@cindex declaring value types
-@cindex value types, declaring
-@findex %union
-
-The @code{%union} declaration specifies the entire collection of
-possible data types for semantic values.  The keyword @code{%union} is
-followed by braced code containing the same thing that goes inside a
-@code{union} in C@.
-
-For example:
-
-@example
-@group
-%union @{
-  double val;
-  symrec *tptr;
-@}
-@end group
-@end example
-
-@noindent
-This says that the two alternative types are @code{double} and @code{symrec
-*}.  They are given names @code{val} and @code{tptr}; these names are used
-in the @code{%token} and @code{%type} declarations to pick one of the types
-for a terminal or nonterminal symbol (@pxref{Type Decl, ,Nonterminal Symbols}).
-
-As an extension to POSIX, a tag is allowed after the
-@code{union}.  For example:
-
-@example
-@group
-%union value @{
-  double val;
-  symrec *tptr;
-@}
-@end group
-@end example
-
-@noindent
-specifies the union tag @code{value}, so the corresponding C type is
-@code{union value}.  If you do not specify a tag, it defaults to
-@code{YYSTYPE}.
-
-As another extension to POSIX, you may specify multiple
-@code{%union} declarations; their contents are concatenated.  However,
-only the first @code{%union} declaration can specify a tag.
-
-Note that, unlike making a @code{union} declaration in C, you need not write
-a semicolon after the closing brace.
-
-Instead of @code{%union}, you can define and use your own union type
-@code{YYSTYPE} if your grammar contains at least one
-@samp{<@var{type}>} tag.  For example, you can put the following into
-a header file @file{parser.h}:
-
-@example
-@group
-union YYSTYPE @{
-  double val;
-  symrec *tptr;
-@};
-typedef union YYSTYPE YYSTYPE;
-@end group
-@end example
-
-@noindent
-and then your grammar can use the following
-instead of @code{%union}:
-
-@example
-@group
-%@{
-#include "parser.h"
-%@}
-%type <val> expr
-%token <tptr> ID
-@end group
-@end example
-
 @node Type Decl
 @subsection Nonterminal Symbols
 @cindex declaring value types, nonterminals
@@ -4737,7 +4900,7 @@ used.  This is done with a @code{%type} declaration, like this:
 @noindent
 Here @var{nonterminal} is the name of a nonterminal symbol, and
 @var{type} is the name given in the @code{%union} to the alternative
-that you want (@pxref{Union Decl, ,The Collection of Value Types}).  You
+that you want (@pxref{Union Decl, ,The Union Declaration}).  You
 can give any number of nonterminal symbols in the same @code{%type}
 declaration, if they have the same value type.  Use spaces to separate
 the symbol names.
@@ -4833,10 +4996,8 @@ For example:
 
 @example
 %union @{ char *string; @}
-%token <string> STRING1
-%token <string> STRING2
-%type  <string> string1
-%type  <string> string2
+%token <string> STRING1 STRING2
+%type  <string> string1 string2
 %union @{ char character; @}
 %token <character> CHR
 %type  <character> chr
@@ -4962,10 +5123,8 @@ For example:
 
 @example
 %union @{ char *string; @}
-%token <string> STRING1
-%token <string> STRING2
-%type  <string> string1
-%type  <string> string2
+%token <string> STRING1 STRING2
+%type  <string> string1 string2
 %union @{ char character; @}
 %token <character> CHR
 %type  <character> chr
@@ -5224,7 +5383,7 @@ Here is a summary of the declarations used to define a grammar:
 
 @deffn {Directive} %union
 Declare the collection of data types that semantic values may have
-(@pxref{Union Decl, ,The Collection of Value Types}).
+(@pxref{Union Decl, ,The Union Declaration}).
 @end deffn
 
 @deffn {Directive} %token
@@ -5292,6 +5451,7 @@ parse.trace}.
 
 @deffn {Directive} %define @var{variable}
 @deffnx {Directive} %define @var{variable} @var{value}
+@deffnx {Directive} %define @var{variable} @{@var{value}@}
 @deffnx {Directive} %define @var{variable} "@var{value}"
 Define a variable to adjust Bison's behavior.  @xref{%define Summary}.
 @end deffn
@@ -5341,7 +5501,7 @@ preprocessor guard: @samp{YY_@var{PREFIX}_@var{FILE}_INCLUDED}, where
 uppercase, with each series of non alphanumerical characters converted to a
 single underscore.
 
-For instance with @samp{%define api.prefix "calc"} and @samp{%defines
+For instance with @samp{%define api.prefix @{calc@}} and @samp{%defines
 "lib/parse.h"}, the header will be guarded as follows.
 @example
 #ifndef YY_CALC_LIB_PARSE_H_INCLUDED
@@ -5352,7 +5512,7 @@ For instance with @samp{%define api.prefix "calc"} and @samp{%defines
 @end deffn
 
 @deffn {Directive} %defines @var{defines-file}
-Same as above, but save in the file @var{defines-file}.
+Same as above, but save in the file @file{@var{defines-file}}.
 @end deffn
 
 @deffn {Directive} %destructor
@@ -5415,7 +5575,7 @@ own right.
 @end deffn
 
 @deffn {Directive} %output "@var{file}"
-Specify @var{file} for the parser implementation file.
+Generate the parser implementation in @file{@var{file}}.
 @end deffn
 
 @deffn {Directive} %pure-parser
@@ -5503,17 +5663,17 @@ features are associated with variables, which are assigned by the
 
 @deffn {Directive} %define @var{variable}
 @deffnx {Directive} %define @var{variable} @var{value}
+@deffnx {Directive} %define @var{variable} @{@var{value}@}
 @deffnx {Directive} %define @var{variable} "@var{value}"
 Define @var{variable} to @var{value}.
 
-@var{value} must be placed in quotation marks if it contains any
-character other than a letter, underscore, period, or non-initial dash
-or digit.  Omitting @code{"@var{value}"} entirely is always equivalent
-to specifying @code{""}.
+The type of the values depend on the syntax.  Braces denote value in the
+target language (e.g., a namespace, a type, etc.).  Keyword values (no
+delimiters) denote finite choice (e.g., a variation of a feature).  String
+values denote remaining cases (e.g., a file name).
 
-It is an error if a @var{variable} is defined by @code{%define}
-multiple times, but see @ref{Bison Options,,-D
-@var{name}[=@var{value}]}.
+It is an error if a @var{variable} is defined by @code{%define} multiple
+times, but see @ref{Bison Options,,-D @var{name}[=@var{value}]}.
 @end deffn
 
 The rest of this section summarizes variables and values that
@@ -5542,7 +5702,8 @@ Summary,,%skeleton}).
 Unaccepted @var{variable}s produce an error.
 Some of the accepted @var{variable}s are described below.
 
-@deffn Directive {%define api.namespace} "@var{namespace}"
+@c ================================================== api.namespace
+@deffn Directive {%define api.namespace} @{@var{namespace}@}
 @itemize
 @item Languages(s): C++
 
@@ -5550,7 +5711,7 @@ Some of the accepted @var{variable}s are described below.
 For example, if you specify:
 
 @example
-%define api.namespace "foo::bar"
+%define api.namespace @{foo::bar@}
 @end example
 
 Bison uses @code{foo::bar} verbatim in references such as:
@@ -5583,7 +5744,7 @@ api.namespace} so that @code{%name-prefix} @emph{only} affects the
 lexical analyzer function.  For example, if you specify:
 
 @example
-%define api.namespace "foo"
+%define api.namespace @{foo@}
 %name-prefix "bar::"
 @end example
 
@@ -5594,7 +5755,7 @@ The parser namespace is @code{foo} and @code{yylex} is referenced as
 @c api.namespace
 
 @c ================================================== api.location.type
-@deffn {Directive} {%define api.location.type} @var{type}
+@deffn {Directive} {%define api.location.type} @{@var{type}@}
 
 @itemize @bullet
 @item Language(s): C++, Java
@@ -5613,7 +5774,7 @@ Introduced in Bison 2.7 for C, C++ and Java.  Introduced under the name
 @end deffn
 
 @c ================================================== api.prefix
-@deffn {Directive} {%define api.prefix} @var{prefix}
+@deffn {Directive} {%define api.prefix} @{@var{prefix}@}
 
 @itemize @bullet
 @item Language(s): All
@@ -5630,7 +5791,7 @@ Introduced in Bison 2.7 for C, C++ and Java.  Introduced under the name
 @end deffn
 
 @c ================================================== api.pure
-@deffn Directive {%define api.pure}
+@deffn Directive {%define api.pure} @var{purity}
 
 @itemize @bullet
 @item Language(s): C
@@ -5718,14 +5879,14 @@ Boolean.
 @item Default Value:
 @code{false}
 @item History:
-introduced in Bison 2.8
+introduced in Bison 3.0
 @end itemize
 @end deffn
 @c api.token.constructor
 
 
 @c ================================================== api.token.prefix
-@deffn Directive {%define api.token.prefix} @var{prefix}
+@deffn Directive {%define api.token.prefix} @{@var{prefix}@}
 
 @itemize
 @item Languages(s): all
@@ -5736,7 +5897,7 @@ target language.  For instance
 
 @example
 %token FILE for ERROR
-%define api.token.prefix "TOK_"
+%define api.token.prefix @{TOK_@}
 %%
 start: FILE for ERROR;
 @end example
@@ -5747,8 +5908,13 @@ and @code{TOK_ERROR} in the generated source files.  In particular, the
 scanner must use these prefixed token names, while the grammar itself
 may still use the short names (as in the sample rule given above).  The
 generated informational files (@file{*.output}, @file{*.xml},
-@file{*.dot}) are not modified by this prefix.  See @ref{Calc++ Parser}
-and @ref{Calc++ Scanner}, for a complete example.
+@file{*.dot}) are not modified by this prefix.
+
+Bison also prefixes the generated member names of the semantic value union.
+@xref{Type Generation,, Generating the Semantic Value Type}, for more
+details.
+
+See @ref{Calc++ Parser} and @ref{Calc++ Scanner}, for a complete example.
 
 @item Accepted Values:
 Any string.  Should be a valid identifier prefix in the target language,
@@ -5758,26 +5924,102 @@ letters, underscores, and ---not at the beginning--- digits).
 @item Default Value:
 empty
 @item History:
-introduced in Bison 2.8
+introduced in Bison 3.0
 @end itemize
 @end deffn
 @c api.token.prefix
 
 
 @c ================================================== api.value.type
-@deffn Directive {%define api.value.type} @var{type}
+@deffn Directive {%define api.value.type} @var{support}
+@deffnx Directive {%define api.value.type} @{@var{type}@}
 @itemize @bullet
 @item Language(s):
-C++
+all
 
 @item Purpose:
-Request variant-based semantic values.
+The type for semantic values.
+
+@item Accepted Values:
+@table @asis
+@item @samp{@{@}}
+This grammar has no semantic value at all.  This is not properly supported
+yet.
+@item @samp{union-directive} (C, C++)
+The type is defined thanks to the @code{%union} directive.  You don't have
+to define @code{api.value.type} in that case, using @code{%union} suffices.
+@xref{Union Decl, ,The Union Declaration}.
+For instance:
+@example
+%define api.value.type union-directive
+%union
+@{
+  int ival;
+  char *sval;
+@}
+%token <ival> INT "integer"
+%token <sval> STR "string"
+@end example
+
+@item @samp{union} (C, C++)
+The symbols are defined with type names, from which Bison will generate a
+@code{union}.  For instance:
+@example
+%define api.value.type union
+%token <int> INT "integer"
+%token <char *> STR "string"
+@end example
+This feature needs user feedback to stabilize.  Note that most C++ objects
+cannot be stored in a @code{union}.
+
+@item @samp{variant} (C++)
+This is similar to @code{union}, but special storage techniques are used to
+allow any kind of C++ object to be used. For instance:
+@example
+%define api.value.type variant
+%token <int> INT "integer"
+%token <std::string> STR "string"
+@end example
+This feature needs user feedback to stabilize.
 @xref{C++ Variants}.
 
+@item @samp{@{@var{type}@}}
+Use this @var{type} as semantic value.
+@example
+%code requires
+@{
+  struct my_value
+  @{
+    enum
+    @{
+      is_int, is_str
+    @} kind;
+    union
+    @{
+      int ival;
+      char *sval;
+    @} u;
+  @};
+@}
+%define api.value.type @{struct my_value@}
+%token <u.ival> INT "integer"
+%token <u.sval> STR "string"
+@end example
+@end table
+
 @item Default Value:
-FIXME:
+@itemize @minus
+@item
+@code{%union} if @code{%union} is used, otherwise @dots{}
+@item
+@code{int} if type tags are used (i.e., @samp{%token <@var{type}>@dots{}} or
+@samp{%token <@var{type}>@dots{}} is used), otherwise @dots{}
+@item
+@code{""}
+@end itemize
+
 @item History:
-introduced in Bison 2.8.  Was introduced for Java only in 2.3b as
+introduced in Bison 3.0.  Was introduced for Java only in 2.3b as
 @code{stype}.
 @end itemize
 @end deffn
@@ -5809,8 +6051,8 @@ feedback will help to stabilize it.)
 @item @code{most} otherwise.
 @end itemize
 @item History:
-introduced as @code{lr.default-reduction} in 2.5, renamed as
-@code{lr.default-reduction} in 2.8.
+introduced as @code{lr.default-reductions} in 2.5, renamed as
+@code{lr.default-reduction} in 3.0.
 @end itemize
 @end deffn
 
@@ -5827,7 +6069,7 @@ remain in the parser tables.  @xref{Unreachable States}.
 @item History:
 introduced as @code{lr.keep_unreachable_states} in 2.3b, renamed as
 @code{lr.keep-unreachable-states} in 2.5, and as
-@code{lr.keep-unreachable-state} in 2.8.
+@code{lr.keep-unreachable-state} in 3.0.
 @end itemize
 @end deffn
 @c lr.keep-unreachable-state
@@ -5850,7 +6092,7 @@ More user feedback will help to stabilize it.)
 @end deffn
 
 @c ================================================== namespace
-@deffn Directive %define namespace @var{namespace}
+@deffn Directive %define namespace @{@var{namespace}@}
 Obsoleted by @code{api.namespace}
 @c namespace
 @end deffn
@@ -5875,7 +6117,7 @@ destroyed properly.  This option checks these constraints.
 
 
 @c ================================================== parse.error
-@deffn Directive {%define parse.error}
+@deffn Directive {%define parse.error} @var{verbosity}
 @itemize
 @item Languages(s):
 all
@@ -5902,7 +6144,7 @@ However, this report can often be incorrect when LAC is not enabled
 
 
 @c ================================================== parse.lac
-@deffn Directive {%define parse.lac}
+@deffn Directive {%define parse.lac} @var{when}
 
 @itemize
 @item Languages(s): C (deterministic parsers only)
@@ -5925,7 +6167,7 @@ syntax error handling.  @xref{LAC}.
 @xref{Tracing, ,Tracing Your Parser}.
 
 In C/C++, define the macro @code{YYDEBUG} (or @code{@var{prefix}DEBUG} with
-@samp{%define api.prefix @var{prefix}}), see @ref{Multiple Parsers,
+@samp{%define api.prefix @{@var{prefix}@}}), see @ref{Multiple Parsers,
 ,Multiple Parsers in the Same Program}) to 1 in the parser implementation
 file if it is not already defined, so that the debugging facilities are
 compiled.
@@ -5988,10 +6230,11 @@ qualifiers produce an error.  Some of the accepted qualifiers are:
 @item Language(s): C, C++
 
 @item Purpose: This is the best place to write dependency code required for
-@code{YYSTYPE} and @code{YYLTYPE}.
-In other words, it's the best place to define types referenced in @code{%union}
-directives, and it's the best place to override Bison's default @code{YYSTYPE}
-and @code{YYLTYPE} definitions.
+@code{YYSTYPE} and @code{YYLTYPE}.  In other words, it's the best place to
+define types referenced in @code{%union} directives.  If you use
+@code{#define} to override Bison's default @code{YYSTYPE} and @code{YYLTYPE}
+definitions, then it is also the best place.  However you should rather
+@code{%define} @code{api.value.type} and @code{api.location.type}.
 
 @item Location(s): The parser header file and the parser implementation file
 before the Bison-generated @code{YYSTYPE} and @code{YYLTYPE}
@@ -6067,7 +6310,7 @@ The easy way to do this is to define the @code{%define} variable
 @code{api.prefix}.  With different @code{api.prefix}s it is guaranteed that
 headers do not conflict when included together, and that compiled objects
 can be linked together too.  Specifying @samp{%define api.prefix
-@var{prefix}} (or passing the option @samp{-Dapi.prefix=@var{prefix}}, see
+@{@var{prefix}@}} (or passing the option @samp{-Dapi.prefix=@{@var{prefix}@}}, see
 @ref{Invocation, ,Invoking Bison}) renames the interface functions and
 variables of the Bison parser to start with @var{prefix} instead of
 @samp{yy}, and all the macros to start by @var{PREFIX} (i.e., @var{prefix}
@@ -6081,7 +6324,7 @@ The renamed symbols include @code{yyparse}, @code{yylex}, @code{yyerror},
 @code{YYSTYPE}, @code{YYLTYPE}, and @code{YYDEBUG}, which is treated
 specifically --- more about this below.
 
-For example, if you use @samp{%define api.prefix c}, the names become
+For example, if you use @samp{%define api.prefix @{c@}}, the names become
 @code{cparse}, @code{clex}, @dots{}, @code{CSTYPE}, @code{CLTYPE}, and so
 on.
 
@@ -6391,7 +6634,7 @@ yylex (void)
     return 0;
   @dots{}
   if (c == '+' || c == '-')
-    return c;      /* Assume token type for `+' is '+'.  */
+    return c;      /* Assume token type for '+' is '+'.  */
   @dots{}
   return INT;      /* Return the type of the token.  */
   @dots{}
@@ -6463,7 +6706,7 @@ Thus, if the type is @code{int} (the default), you might write this in
 
 When you are using multiple data types, @code{yylval}'s type is a union
 made from the @code{%union} declaration (@pxref{Union Decl, ,The
-Collection of Value Types}).  So when you store a token's value, you
+Union Declaration}).  So when you store a token's value, you
 must use the proper member of the union.  If the @code{%union}
 declaration looks like this:
 
@@ -7488,7 +7731,7 @@ of zero or more @code{word} groupings.
 @example
 @group
 sequence:
-  /* empty */    @{ printf ("empty sequence\n"); @}
+  %empty         @{ printf ("empty sequence\n"); @}
 | maybeword
 | sequence word  @{ printf ("added word %s\n", $2); @}
 ;
@@ -7496,8 +7739,8 @@ sequence:
 
 @group
 maybeword:
-  /* empty */   @{ printf ("empty maybeword\n"); @}
-| word          @{ printf ("single word %s\n", $1); @}
+  %empty    @{ printf ("empty maybeword\n"); @}
+| word      @{ printf ("single word %s\n", $1); @}
 ;
 @end group
 @end example
@@ -7528,7 +7771,7 @@ proper way to define @code{sequence}:
 @example
 @group
 sequence:
-  /* empty */    @{ printf ("empty sequence\n"); @}
+  %empty         @{ printf ("empty sequence\n"); @}
 | sequence word  @{ printf ("added word %s\n", $2); @}
 ;
 @end group
@@ -7539,7 +7782,7 @@ Here is another common error that yields a reduce/reduce conflict:
 @example
 @group
 sequence:
-  /* empty */
+  %empty
 | sequence words
 | sequence redirects
 ;
@@ -7547,14 +7790,14 @@ sequence:
 
 @group
 words:
-  /* empty */
+  %empty
 | words word
 ;
 @end group
 
 @group
 redirects:
-  /* empty */
+  %empty
 | redirects redirect
 ;
 @end group
@@ -7577,7 +7820,7 @@ of sequence:
 
 @example
 sequence:
-  /* empty */
+  %empty
 | sequence word
 | sequence redirect
 ;
@@ -7589,7 +7832,7 @@ from being empty:
 @example
 @group
 sequence:
-  /* empty */
+  %empty
 | sequence words
 | sequence redirects
 ;
@@ -7633,7 +7876,7 @@ rule:
 %%
 @group
 sequence:
-  /* empty */
+  %empty
 | sequence word      %prec "sequence"
 | sequence redirect  %prec "sequence"
 ;
@@ -7655,7 +7898,7 @@ rule with the same precedence, but make them right-associative:
 %%
 @group
 sequence:
-  /* empty */
+  %empty
 | sequence word      %prec "word"
 | sequence redirect  %prec "redirect"
 ;
@@ -8352,7 +8595,7 @@ For example:
 
 @example
 stmts:
-  /* empty string */
+  %empty
 | stmts '\n'
 | stmts exp '\n'
 | stmts error '\n'
@@ -9314,7 +9557,7 @@ enabled if and only if @code{YYDEBUG} is nonzero.
 @item the option @option{-t} (POSIX Yacc compliant)
 @itemx the option @option{--debug} (Bison extension)
 Use the @samp{-t} option when you run Bison (@pxref{Invocation, ,Invoking
-Bison}).  With @samp{%define api.prefix c}, it defines @code{CDEBUG} to 1,
+Bison}).  With @samp{%define api.prefix @{c@}}, it defines @code{CDEBUG} to 1,
 otherwise it defines @code{YYDEBUG} to 1.
 
 @item the directive @samp{%debug}
@@ -9406,7 +9649,7 @@ prologue:
 /* Formatting semantic values.  */
 %printer @{ fprintf (yyoutput, "%s", $$->name); @} VAR;
 %printer @{ fprintf (yyoutput, "%s()", $$->name); @} FNCT;
-%printer @{ fprintf (yyoutput, "%g", $$); @} <val>;
+%printer @{ fprintf (yyoutput, "%g", $$); @} <double>;
 @end example
 
 The @code{%define} directive instructs Bison to generate run-time trace
@@ -9419,8 +9662,8 @@ ill-named) @code{%verbose} directive.
 The set of @code{%printer} directives demonstrates how to format the
 semantic value in the traces.  Note that the specification can be done
 either on the symbol type (e.g., @code{VAR} or @code{FNCT}), or on the type
-tag: since @code{<val>} is the type for both @code{NUM} and @code{exp}, this
-printer will be used for them.
+tag: since @code{<double>} is the type for both @code{NUM} and @code{exp},
+this printer will be used for them.
 
 Here is a sample of the information provided by run-time traces.  The traces
 are sent onto standard error.
@@ -9470,7 +9713,7 @@ Entering state 24
 
 @noindent
 The previous reduction demonstrates the @code{%printer} directive for
-@code{<val>}: both the token @code{NUM} and the resulting nonterminal
+@code{<double>}: both the token @code{NUM} and the resulting nonterminal
 @code{exp} have @samp{1} as value.
 
 @example
@@ -9654,7 +9897,7 @@ Here is a list of options that can be used with Bison, alphabetized by
 short option.  It is followed by a cross key alphabetized by long
 option.
 
-@c Please, keep this ordered as in `bison --help'.
+@c Please, keep this ordered as in 'bison --help'.
 @noindent
 Operations modes:
 @table @option
@@ -9735,6 +9978,11 @@ no effect on the conflict report.
 Deprecated constructs whose support will be removed in future versions of
 Bison.
 
+@item empty-rule
+Empty rules without @code{%empty}.  @xref{Empty Rules}.  Disabled by
+default, but enabled by uses of @code{%empty}, unless
+@option{-Wno-empty-rule} was specified.
+
 @item precedence
 Useless precedence and associativity directives.  Disabled by default.
 
@@ -9804,9 +10052,11 @@ releases of Bison may move warnings from this category to new, more specific
 categories.
 
 @item all
-All the warnings.
+All the warnings except @code{yacc}.
+
 @item none
 Turn off all the warnings.
+
 @item error
 See @option{-Werror}, below.
 @end table
@@ -10192,7 +10442,7 @@ approach is provided, based on variants (@pxref{C++ Variants}).
 @subsubsection C++ Unions
 
 The @code{%union} directive works as for C, see @ref{Union Decl, ,The
-Collection of Value Types}.  In particular it produces a genuine
+Union Declaration}.  In particular it produces a genuine
 @code{union}, which have a few specific features in C++.
 @itemize @minus
 @item
@@ -10344,16 +10594,18 @@ filename_type "@var{type}"}.
 The line, starting at 1.
 @end deftypeivar
 
-@deftypemethod {position} {uint} lines (int @var{height} = 1)
-Advance by @var{height} lines, resetting the column number.
+@deftypemethod {position} {void} lines (int @var{height} = 1)
+If @var{height} is not null, advance by @var{height} lines, resetting the
+column number.  The resulting line number cannot be less than 1.
 @end deftypemethod
 
 @deftypeivar {position} {uint} column
 The column, starting at 1.
 @end deftypeivar
 
-@deftypemethod {position} {uint} columns (int @var{width} = 1)
-Advance by @var{width} columns, without changing the line number.
+@deftypemethod {position} {void} columns (int @var{width} = 1)
+Advance by @var{width} columns, without changing the line number. The
+resulting column number cannot be less than 1.
 @end deftypemethod
 
 @deftypemethod {position} {position&} operator+= (int @var{width})
@@ -10395,14 +10647,16 @@ Reset the location to an empty range at the given values.
 The first, inclusive, position of the range, and the first beyond.
 @end deftypeivar
 
-@deftypemethod {location} {uint} columns (int @var{width} = 1)
-@deftypemethodx {location} {uint} lines (int @var{height} = 1)
-Advance the @code{end} position.
+@deftypemethod {location} {void} columns (int @var{width} = 1)
+@deftypemethodx {location} {void} lines (int @var{height} = 1)
+Forwarded to the @code{end} position.
 @end deftypemethod
 
 @deftypemethod {location} {location} operator+ (const location& @var{end})
 @deftypemethodx {location} {location} operator+ (int @var{width})
 @deftypemethodx {location} {location} operator+= (int @var{width})
+@deftypemethodx {location} {location} operator- (int @var{width})
+@deftypemethodx {location} {location} operator-= (int @var{width})
 Various forms of syntactic sugar.
 @end deftypemethod
 
@@ -10429,7 +10683,7 @@ Instead of using the built-in types you may use the @code{%define} variable
 @code{api.location.type} to specify your own type:
 
 @example
-%define api.location.type @var{LocationType}
+%define api.location.type @{@var{LocationType}@}
 @end example
 
 The requirements over your @var{LocationType} are:
@@ -10466,7 +10720,7 @@ parser @file{master/parser.yy} might use:
 @example
 %defines
 %locations
-%define namespace "master::"
+%define api.namespace @{master::@}
 @end example
 
 @noindent
@@ -10474,7 +10728,7 @@ to generate the @file{master/position.hh} and @file{master/location.hh}
 files, reused by other parsers as follows:
 
 @example
-%define api.location.type "master::location"
+%define api.location.type @{master::location@}
 %code requires @{ #include <master/location.hh> @}
 @end example
 
@@ -10489,7 +10743,7 @@ files, reused by other parsers as follows:
 The output files @file{@var{output}.hh} and @file{@var{output}.cc}
 declare and define the parser class in the namespace @code{yy}.  The
 class name defaults to @code{parser}, but may be changed using
-@samp{%define parser_class_name "@var{name}"}.  The interface of
+@samp{%define parser_class_name @{@var{name}@}}.  The interface of
 this class is detailed below.  It can be extended using the
 @code{%parse-param} feature: its semantics is slightly changed since
 it describes an additional member of the parser class, and an
@@ -10666,7 +10920,7 @@ also pass the @var{location}.
 For instance, given the following declarations:
 
 @example
-%define api.token.prefix "TOK_"
+%define api.token.prefix @{TOK_@}
 %token <std::string> IDENTIFIER;
 %token <int> INTEGER;
 %token COLON;
@@ -10894,7 +11148,7 @@ the grammar for.
 %skeleton "lalr1.cc" /* -*- C++ -*- */
 %require "@value{VERSION}"
 %defines
-%define parser_class_name "calcxx_parser"
+%define parser_class_name @{calcxx_parser@}
 @end example
 
 @noindent
@@ -10992,7 +11246,7 @@ tokens with @code{TOK_} (@pxref{%define Summary,,api.token.prefix}).
 
 @comment file: calc++-parser.yy
 @example
-%define api.token.prefix "TOK_"
+%define api.token.prefix @{TOK_@}
 %token
   END  0  "end of file"
   ASSIGN  ":="
@@ -11039,7 +11293,7 @@ Location Tracking Calculator: @code{ltcalc}}).
 unit: assignments exp  @{ driver.result = $2; @};
 
 assignments:
-  /* Nothing.  */        @{@}
+  %empty                 @{@}
 | assignments assignment @{@};
 
 assignment:
@@ -11329,7 +11583,7 @@ superclass of all the semantic values using the @samp{%define api.value.type}
 directive.  For example, after the following declaration:
 
 @example
-%define api.value.type "ASTNode"
+%define api.value.type @{ASTNode@}
 @end example
 
 @noindent
@@ -11364,11 +11618,11 @@ class defines a @dfn{position}, a single point in a file; Bison itself
 defines a class representing a @dfn{location}, a range composed of a pair of
 positions (possibly spanning several files).  The location class is an inner
 class of the parser; the name is @code{Location} by default, and may also be
-renamed using @code{%define api.location.type "@var{class-name}"}.
+renamed using @code{%define api.location.type @{@var{class-name}@}}.
 
 The location class treats the position as a completely opaque value.
 By default, the class name is @code{Position}, but this can be changed
-with @code{%define api.position.type "@var{class-name}"}.  This class must
+with @code{%define api.position.type @{@var{class-name}@}}.  This class must
 be supplied by the user.
 
 
@@ -11403,7 +11657,7 @@ properly, the position class should override the @code{equals} and
 The name of the generated parser class defaults to @code{YYParser}.  The
 @code{YY} prefix may be changed using the @code{%name-prefix} directive
 or the @option{-p}/@option{--name-prefix} option.  Alternatively, use
-@samp{%define parser_class_name "@var{name}"} to give a custom name to
+@samp{%define parser_class_name @{@var{name}@}} to give a custom name to
 the class.  The interface of this class is detailed below.
 
 By default, the parser class has package visibility.  A declaration
@@ -11412,7 +11666,7 @@ according to the Java language specification, the name of the @file{.java}
 file should match the name of the class in this case.  Similarly, you can
 use @code{abstract}, @code{final} and @code{strictfp} with the
 @code{%define} declaration to add other modifiers to the parser class.
-A single @samp{%define annotations "@var{annotations}"} directive can
+A single @samp{%define annotations @{@var{annotations}@}} directive can
 be used to add any number of annotations to the parser class.
 
 The Java package name of the parser class can be specified using the
@@ -11530,7 +11784,7 @@ In both cases, the scanner has to implement the following methods.
 @deftypemethod {Lexer} {void} yyerror (Location @var{loc}, String @var{msg})
 This method is defined by the user to emit an error message.  The first
 parameter is omitted if location tracking is not active.  Its type can be
-changed using @code{%define api.location.type "@var{class-name}".}
+changed using @code{%define api.location.type @{@var{class-name}@}}.
 @end deftypemethod
 
 @deftypemethod {Lexer} {int} yylex ()
@@ -11549,14 +11803,14 @@ Return respectively the first position of the last token that
 methods are not needed unless location tracking is active.
 
 The return type can be changed using @code{%define api.position.type
-"@var{class-name}".}
+@{@var{class-name}@}}.
 @end deftypemethod
 
 @deftypemethod {Lexer} {Object} getLVal ()
 Return the semantic value of the last token that yylex returned.
 
 The return type can be changed using @samp{%define api.value.type
-"@var{class-name}".}
+@{@var{class-name}@}}.
 @end deftypemethod
 
 @node Java Action Features
@@ -11850,12 +12104,12 @@ Whether the parser class is declared @code{abstract}.  Default is false.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define annotations} "@var{annotations}"
+@deffn {Directive} {%define annotations} @{@var{annotations}@}
 The Java annotations for the parser class.  Default is none.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define extends} "@var{superclass}"
+@deffn {Directive} {%define extends} @{@var{superclass}@}
 The superclass of the parser class.  Default is none.
 @xref{Java Bison Interface}.
 @end deffn
@@ -11865,25 +12119,25 @@ Whether the parser class is declared @code{final}.  Default is false.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define implements} "@var{interfaces}"
+@deffn {Directive} {%define implements} @{@var{interfaces}@}
 The implemented interfaces of the parser class, a comma-separated list.
 Default is none.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define init_throws} "@var{exceptions}"
+@deffn {Directive} {%define init_throws} @{@var{exceptions}@}
 The exceptions thrown by @code{%code init} from the parser class
 constructor.  Default is none.
 @xref{Java Parser Interface}.
 @end deffn
 
-@deffn {Directive} {%define lex_throws} "@var{exceptions}"
+@deffn {Directive} {%define lex_throws} @{@var{exceptions}@}
 The exceptions thrown by the @code{yylex} method of the lexer, a
 comma-separated list.  Default is @code{java.io.IOException}.
 @xref{Java Scanner Interface}.
 @end deffn
 
-@deffn {Directive} {%define api.location.type} "@var{class}"
+@deffn {Directive} {%define api.location.type} @{@var{class}@}
 The name of the class used for locations (a range between two
 positions).  This class is generated as an inner class of the parser
 class by @command{bison}.  Default is @code{Location}.
@@ -11891,18 +12145,18 @@ Formerly named @code{location_type}.
 @xref{Java Location Values}.
 @end deffn
 
-@deffn {Directive} {%define package} "@var{package}"
+@deffn {Directive} {%define package} @{@var{package}@}
 The package to put the parser class in.  Default is none.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define parser_class_name} "@var{name}"
+@deffn {Directive} {%define parser_class_name} @{@var{name}@}
 The name of the parser class.  Default is @code{YYParser} or
 @code{@var{name-prefix}Parser}.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define api.position.type} "@var{class}"
+@deffn {Directive} {%define api.position.type} @{@var{class}@}
 The name of the class used for positions. This class must be supplied by
 the user.  Default is @code{Position}.
 Formerly named @code{position_type}.
@@ -11914,7 +12168,7 @@ Whether the parser class is declared @code{public}.  Default is false.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define api.value.type} "@var{class}"
+@deffn {Directive} {%define api.value.type} @{@var{class}@}
 The base type of semantic values.  Default is @code{Object}.
 @xref{Java Semantic Values}.
 @end deffn
@@ -11924,7 +12178,7 @@ Whether the parser class is declared @code{strictfp}.  Default is false.
 @xref{Java Bison Interface}.
 @end deffn
 
-@deffn {Directive} {%define throws} "@var{exceptions}"
+@deffn {Directive} {%define throws} @{@var{exceptions}@}
 The exceptions thrown by user-supplied parser actions and
 @code{%initial-action}, a comma-separated list.  Default is none.
 @xref{Java Parser Interface}.
@@ -12288,7 +12542,7 @@ operating system's name and version and your compiler's name and
 version.  If you have trouble compiling, you should also include a
 transcript of the build session, starting with the invocation of
 `configure'.  Depending on the nature of the bug, you may be asked to
-send additional files as well (such as `config.h' or `config.cache').
+send additional files as well (such as @file{config.h} or @file{config.cache}).
 
 Patches are most welcome, but not required.  That is, do not hesitate to
 send a bug report just because you cannot provide a fix.
@@ -12478,6 +12732,7 @@ Precedence}.
 
 @deffn {Directive} %define @var{variable}
 @deffnx {Directive} %define @var{variable} @var{value}
+@deffnx {Directive} %define @var{variable} @{@var{value}@}
 @deffnx {Directive} %define @var{variable} "@var{value}"
 Define a variable to adjust Bison's behavior.  @xref{%define Summary}.
 @end deffn
@@ -12501,6 +12756,11 @@ discarded symbols.  @xref{Destructor Decl, , Freeing Discarded Symbols}.
 Bison declaration to assign a precedence to a rule that is used at parse
 time to resolve reduce/reduce conflicts.  @xref{GLR Parsers, ,Writing
 GLR Parsers}.
+@end deffn
+
+@deffn {Directive} %empty
+Bison declaration to declare make explicit that a rule has an empty
+right-hand side.  @xref{Empty Rules}.
 @end deffn
 
 @deffn {Symbol} $end
@@ -12576,7 +12836,7 @@ push parser, @code{yypush_parse}, @code{yypull_parse}, @code{yypstate},
 @code{yypstate_new} and @code{yypstate_delete} will also be renamed.  For
 example, if you use @samp{%name-prefix "c_"}, the names become
 @code{c_parse}, @code{c_lex}, and so on.  For C++ parsers, see the
-@code{%define namespace} documentation in this section.
+@code{%define api.namespace} documentation in this section.
 @end deffn
 
 
@@ -12673,7 +12933,7 @@ The predefined token onto which all undefined values returned by
 
 @deffn {Directive} %union
 Bison declaration to specify several possible data types for semantic
-values.  @xref{Union Decl, ,The Collection of Value Types}.
+values.  @xref{Union Decl, ,The Union Declaration}.
 @end deffn
 
 @deffn {Macro} YYABORT
@@ -12878,6 +13138,7 @@ require some expertise in low-level implementation details.
 @end deffn
 
 @deffn {Type} YYSTYPE
+Deprecated in favor of the @code{%define} variable @code{api.value.type}.
 Data type of semantic values; @code{int} by default.
 @xref{Value Type, ,Data Types of Semantic Values}.
 @end deffn

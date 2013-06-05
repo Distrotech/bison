@@ -22,6 +22,7 @@
 #include <config.h>
 #include "system.h"
 
+#include <argmatch.h>
 #include <stdarg.h>
 #include <progname.h>
 
@@ -30,43 +31,199 @@
 #include "getargs.h"
 #include "quote.h"
 
-warnings warnings_flag =
-  Wconflicts_sr | Wconflicts_rr | Wdeprecated  | Wother;
-
-warnings errors_flag;
-
 err_status complaint_status = status_none;
+
+bool warnings_are_errors = false;
+
+/** Diagnostics severity.  */
+typedef enum
+  {
+    severity_disabled = 0,
+    severity_unset = 1,
+    severity_warning = 2,
+    severity_error = 3,
+    severity_fatal = 4
+  } severity;
+
+
+/** For each warning type, its severity.  */
+static severity warnings_flag[warnings_size];
+
 static unsigned *indent_ptr = 0;
 
-void
-warnings_print_categories (warnings warn_flags)
-{
-  if (! (warn_flags & silent))
-    {
-      char const *warn_names[] =
-        {
-          "midrule-values",
-          "yacc",
-          "conflicts-sr",
-          "conflicts-rr",
-          "deprecated",
-          "precedence",
-          "other"
-        };
+/*------------------------.
+| --warnings's handling.  |
+`------------------------*/
 
-      bool any = false;
-      int i;
-      for (i = 0; i < ARRAY_CARDINALITY (warn_names); ++i)
-        if (warn_flags & 1 << i)
-          {
-            bool err = warn_flags & errors_flag;
-            fprintf (stderr, "%s-W", any ? ", " : " [");
-            fprintf (stderr, "%s%s", err ? "error=" : "" , warn_names[i]);
-            any = true;
-          }
-      if (any)
-        fprintf (stderr, "]");
+static const char * const warnings_args[] =
+{
+  "none",
+  "midrule-values",
+  "yacc",
+  "conflicts-sr",
+  "conflicts-rr",
+  "deprecated",
+  "empty-rule",
+  "precedence",
+  "other",
+  "all",
+  "error",
+  "everything",
+  0
+};
+
+static const int warnings_types[] =
+{
+  Wnone,
+  Wmidrule_values,
+  Wyacc,
+  Wconflicts_sr,
+  Wconflicts_rr,
+  Wdeprecated,
+  Wempty_rule,
+  Wprecedence,
+  Wother,
+  Wall,
+  Werror,
+  Weverything
+};
+
+ARGMATCH_VERIFY (warnings_args, warnings_types);
+
+void
+warning_argmatch (char const *arg, size_t no, size_t err)
+{
+  int value = XARGMATCH ("--warning", arg + no + err,
+                         warnings_args, warnings_types);
+
+  /* -Wnone == -Wno-everything, and -Wno-none == -Weverything.  */
+  if (!value)
+    {
+      value = Weverything;
+      no = !no;
     }
+
+  if (no)
+    {
+      size_t b;
+      for (b = 0; b < warnings_size; ++b)
+        if (value & 1 << b)
+          {
+            if (err)
+              {
+                /* -Wno-error=foo: if foo enabled as an error,
+                   make it a warning.  */
+                if (warnings_flag[b] == severity_error)
+                  warnings_flag[b] = severity_warning;
+              }
+            else
+              /* -Wno-foo.  */
+              warnings_flag[b] = severity_disabled;
+          }
+    }
+  else
+    {
+      size_t b;
+      for (b = 0; b < warnings_size; ++b)
+        if (value & 1 << b)
+          /* -Wfoo and -Werror=foo. */
+          warnings_flag[b] = err ? severity_error : severity_warning;
+    }
+}
+
+/** Decode a comma-separated list of arguments from -W.
+ *
+ *  \param args     comma separated list of effective subarguments to decode.
+ *                  If 0, then activate all the flags.
+ */
+
+void
+warnings_argmatch (char *args)
+{
+  if (args)
+    for (args = strtok (args, ","); args; args = strtok (NULL, ","))
+      if (STREQ (args, "error"))
+        warnings_are_errors = true;
+      else if (STREQ (args, "no-error"))
+        {
+          warnings_are_errors = false;
+          warning_argmatch ("no-error=everything", 3, 6);
+        }
+      else
+        {
+          size_t no = STRPREFIX_LIT ("no-", args) ? 3 : 0;
+          size_t err = STRPREFIX_LIT ("error=", args + no) ? 6 : 0;
+
+          warning_argmatch (args, no, err);
+        }
+  else
+    warning_argmatch ("all", 0, 0);
+}
+
+
+/*-----------.
+| complain.  |
+`-----------*/
+
+void
+complain_init (void)
+{
+  warnings warnings_default =
+    Wconflicts_sr | Wconflicts_rr | Wdeprecated | Wother;
+
+  size_t b;
+  for (b = 0; b < warnings_size; ++b)
+    warnings_flag[b] = (1 << b & warnings_default
+                        ? severity_warning
+                        : severity_unset);
+}
+
+static severity
+warning_severity (warnings flags)
+{
+  if (flags & fatal)
+    return severity_fatal;
+  else if (flags & complaint)
+    return severity_error;
+  else
+    {
+      severity res = severity_disabled;
+      size_t b;
+      for (b = 0; b < warnings_size; ++b)
+        if (flags & 1 << b)
+          res = res < warnings_flag[b] ? warnings_flag[b] : res;
+      if (res == severity_warning && warnings_are_errors)
+        res = severity_error;
+      return res;
+    }
+}
+
+bool
+warning_is_unset (warnings flags)
+{
+  size_t b;
+  for (b = 0; b < warnings_size; ++b)
+    if (flags & 1 << b && warnings_flag[b] != severity_unset)
+      return false;
+  return true;
+}
+
+/** Display a "[-Wyacc]" like message on \a f.  */
+
+static void
+warnings_print_categories (warnings warn_flags, FILE *f)
+{
+  /* Display only the first match, the second is "-Wall".  */
+  size_t i;
+  for (i = 0; warnings_args[i]; ++i)
+    if (warn_flags & warnings_types[i])
+      {
+        severity s = warning_severity (warnings_types[i]);
+        fprintf (f, " [-W%s%s]",
+                 s == severity_error ? "error=" : "",
+                 warnings_args[i]);
+        return;
+      }
 }
 
 /** Report an error message.
@@ -109,7 +266,8 @@ error_message (const location *loc, warnings flags, const char *prefix,
     fprintf (stderr, "%s: ", prefix);
 
   vfprintf (stderr, message, args);
-  warnings_print_categories (flags);
+  if (! (flags & silent))
+    warnings_print_categories (flags, stderr);
   {
     size_t l = strlen (message);
     if (l < 2 || message[l - 2] != ':' || message[l - 1] != ' ')
@@ -123,23 +281,28 @@ error_message (const location *loc, warnings flags, const char *prefix,
   fflush (stderr);
 }
 
-/** Raise a complaint. That can be a fatal error, a complaint or just a
+/** Raise a complaint. That can be a fatal error, an error or just a
     warning.  */
-static inline void
+
+static void
 complains (const location *loc, warnings flags, const char *message,
            va_list args)
 {
-  const char* prefix =
-    flags & fatal ? _("fatal error")
-    : flags & (errors_flag | complaint) ? _("error")
-    : _("warning");
-
+  severity s = warning_severity (flags);
   if ((flags & complaint) && complaint_status < status_complaint)
     complaint_status = status_complaint;
-  else if ((flags & (warnings_flag & errors_flag)) && ! complaint_status)
-    complaint_status = status_warning_as_error;
-  if (flags & (warnings_flag | fatal | complaint))
-    error_message (loc, flags, prefix, message, args);
+
+  if (severity_warning <= s)
+    {
+      const char* prefix =
+        s == severity_fatal ? _("fatal error")
+        : s == severity_error ? _("error")
+        : _("warning");
+      if (severity_error <= s && ! complaint_status)
+        complaint_status = status_warning_as_error;
+      error_message (loc, flags, prefix, message, args);
+    }
+
   if (flags & fatal)
     exit (EXIT_FAILURE);
 }
@@ -190,7 +353,6 @@ complain_args (location const *loc, warnings w, unsigned *indent,
     complain (loc, fatal, "too many arguments for complains");
     break;
   }
-
 }
 
 void
@@ -204,4 +366,14 @@ deprecated_directive (location const *loc, char const *old, char const *upd)
     complain (loc, Wdeprecated,
               _("deprecated directive: %s, use %s"),
               quote (old), quote_n (1, upd));
+}
+
+void
+duplicate_directive (char const *directive,
+                     location first, location second)
+{
+  unsigned i = 0;
+  complain (&second, complaint, _("only one %s allowed per rule"), directive);
+  i += SUB_INDENT;
+  complain_indent (&first, complaint, &i, _("previous declaration"));
 }

@@ -61,7 +61,6 @@ int skeleton_prio = default_prio;
 const char *skeleton = NULL;
 int language_prio = default_prio;
 struct bison_language const *language = &valid_languages[0];
-const char *include = NULL;
 
 /** Decode an option's key.
  *
@@ -74,8 +73,6 @@ const char *include = NULL;
  *                  If null, then activate all the flags.
  *  \param no       length of the potential "no-" prefix.
  *                  Can be 0 or 3. If 3, negate the action of the subargument.
- *  \param err      length of a potential "error=".
- *                  Can be 0 or 6. If 6, treat the subargument as a CATEGORY
  *
  *  If VALUE != 0 then KEY sets flags and no-KEY clears them.
  *  If VALUE == 0 then KEY clears all flags from \c all and no-KEY sets all
@@ -84,36 +81,23 @@ const char *include = NULL;
 static void
 flag_argmatch (const char *option,
                const char * const keys[], const int values[],
-               int all, int *flags, char *arg, size_t no, size_t err)
+               int all, int *flags, char *arg, size_t no)
 {
-  int value = 0;
-  if (!err || arg[no + err++] != '\0')
-    value = XARGMATCH (option, arg + no + err, keys, values);
+  int value = XARGMATCH (option, arg + no, keys, values);
 
-  if (value)
+  /* -rnone == -rno-all, and -rno-none == -rall.  */
+  if (!value)
     {
-      if (no)
-        *flags &= ~value;
-      else
-        {
-          if (err)
-            warnings_flag |= value;
-          *flags |= value;
-        }
+      value = all;
+      no = !no;
     }
+
+  if (no)
+    *flags &= ~value;
   else
-    {
-      /* With a simpler 'if (no)' version, -Werror means -Werror=all
-         (or rather, -Werror=no-none, but that syntax is invalid).
-         The difference is:
-         - Werror activates all errors, but not the warnings
-         - Werror=all activates errors, and all warnings */
-      if (no ? !err : err)
-        *flags |= all;
-      else
-        *flags &= ~all;
-    }
+    *flags |= value;
 }
+
 /** Decode an option's set of keys.
  *
  *  \param option   option being decoded.
@@ -133,15 +117,13 @@ flags_argmatch (const char *option,
     for (args = strtok (args, ","); args; args = strtok (NULL, ","))
       {
         size_t no = STRPREFIX_LIT ("no-", args) ? 3 : 0;
-        size_t err = STRPREFIX_LIT ("error", args + no) ? 5 : 0;
-
         flag_argmatch (option, keys,
-                       values, all, err ? &errors_flag : flags,
-                       args, no, err);
+                       values, all, flags, args, no);
       }
   else
     *flags |= all;
 }
+
 
 /** Decode a set of sub arguments.
  *
@@ -196,8 +178,6 @@ ARGMATCH_VERIFY (report_args, report_types);
 
 static const char * const trace_args[] =
 {
-  /* In a series of synonyms, present the most meaningful first, so
-     that argmatch_valid be more readable.  */
   "none       - no traces",
   "scan       - grammar scanner traces",
   "parse      - grammar parser traces",
@@ -238,43 +218,6 @@ static const int trace_types[] =
 ARGMATCH_VERIFY (trace_args, trace_types);
 
 
-/*------------------------.
-| --warnings's handling.  |
-`------------------------*/
-
-static const char * const warnings_args[] =
-{
-  /* In a series of synonyms, present the most meaningful first, so
-     that argmatch_valid be more readable.  */
-  "none            - no warnings",
-  "midrule-values  - unset or unused midrule values",
-  "yacc            - incompatibilities with POSIX Yacc",
-  "conflicts-sr    - S/R conflicts",
-  "conflicts-rr    - R/R conflicts",
-  "deprecated      - obsolete constructs",
-  "precedence      - useless precedence and associativity",
-  "other           - all other warnings",
-  "all             - all of the above",
-  "error           - warnings are errors",
-  0
-};
-
-static const int warnings_types[] =
-{
-  Wnone,
-  Wmidrule_values,
-  Wyacc,
-  Wconflicts_sr,
-  Wconflicts_rr,
-  Wdeprecated,
-  Wprecedence,
-  Wother,
-  Wall,
-  Werror
-};
-
-ARGMATCH_VERIFY (warnings_args, warnings_types);
-
 /*-----------------------.
 | --feature's handling.  |
 `-----------------------*/
@@ -306,7 +249,7 @@ static void
 usage (int status)
 {
   if (status != 0)
-    fprintf (stderr, _("Try `%s --help' for more information.\n"),
+    fprintf (stderr, _("Try '%s --help' for more information.\n"),
              program_name);
   else
     {
@@ -348,7 +291,7 @@ Parser:\n\
   -L, --language=LANGUAGE          specify the output programming language\n\
   -S, --skeleton=FILE              specify the skeleton to use\n\
   -t, --debug                      instrument the parser for tracing\n\
-                                   same as `-Dparse.trace'\n\
+                                   same as '-Dparse.trace'\n\
       --locations                  enable location support\n\
   -D, --define=NAME[=VALUE]        similar to '%define NAME \"VALUE\"'\n\
   -F, --force-define=NAME[=VALUE]  override '%define NAME \"VALUE\"'\n\
@@ -367,7 +310,7 @@ Output:\n\
   -d                         likewise but cannot specify FILE (for POSIX Yacc)\n\
   -r, --report=THINGS        also produce details on the automaton\n\
       --report-file=FILE     write report to FILE\n\
-  -v, --verbose              same as `--report=state'\n\
+  -v, --verbose              same as '--report=state'\n\
   -b, --file-prefix=PREFIX   specify a PREFIX for output files\n\
   -o, --output=FILE          leave output to FILE\n\
   -g, --graph[=FILE]         also output a graph of the automaton\n\
@@ -378,36 +321,37 @@ Output:\n\
 
       fputs (_("\
 Warning categories include:\n\
-  `midrule-values'    unset or unused midrule values\n\
-  `yacc'              incompatibilities with POSIX Yacc\n\
-  `conflicts-sr'      S/R conflicts (enabled by default)\n\
-  `conflicts-rr'      R/R conflicts (enabled by default)\n\
-  `deprecated'        obsolete constructs\n\
-  `precedence'        useless precedence and associativity\n\
-  `other'             all other warnings (enabled by default)\n\
-  `all'               all the warnings\n\
-  `no-CATEGORY'       turn off warnings in CATEGORY\n\
-  `none'              turn off all the warnings\n\
-  `error[=CATEGORY]'  treat warnings as errors\n\
+  'midrule-values'    unset or unused midrule values\n\
+  'yacc'              incompatibilities with POSIX Yacc\n\
+  'conflicts-sr'      S/R conflicts (enabled by default)\n\
+  'conflicts-rr'      R/R conflicts (enabled by default)\n\
+  'deprecated'        obsolete constructs\n\
+  'empty-rule'        empty rules without %empty\n\
+  'precedence'        useless precedence and associativity\n\
+  'other'             all other warnings (enabled by default)\n\
+  'all'               all the warnings except 'yacc'\n\
+  'no-CATEGORY'       turn off warnings in CATEGORY\n\
+  'none'              turn off all the warnings\n\
+  'error[=CATEGORY]'  treat warnings as errors\n\
 "), stdout);
       putc ('\n', stdout);
 
       fputs (_("\
 THINGS is a list of comma separated words that can include:\n\
-  `state'        describe the states\n\
-  `itemset'      complete the core item sets with their closure\n\
-  `lookahead'    explicitly associate lookahead tokens to items\n\
-  `solved'       describe shift/reduce conflicts solving\n\
-  `all'          include all the above information\n\
-  `none'         disable the report\n\
+  'state'        describe the states\n\
+  'itemset'      complete the core item sets with their closure\n\
+  'lookahead'    explicitly associate lookahead tokens to items\n\
+  'solved'       describe shift/reduce conflicts solving\n\
+  'all'          include all the above information\n\
+  'none'         disable the report\n\
 "), stdout);
       putc ('\n', stdout);
 
       fputs (_("\
 FEATURE is a list of comma separated words that can include:\n\
-  `caret'        show errors with carets\n\
-  `all'          all of the above\n\
-  `none'         disable all of the above\n\
+  'caret'        show errors with carets\n\
+  'all'          all of the above\n\
+  'none'         disable all of the above\n\
   "), stdout);
 
       putc ('\n', stdout);
@@ -520,12 +464,10 @@ static char const short_options[] =
   "b:"
   "d"
   "f::"
-  "e"
   "g::"
   "h"
   "k"
   "l"
-  "n"
   "o:"
   "p:"
   "r:"
@@ -555,7 +497,6 @@ static struct option const long_options[] =
 
   /* Parser. */
   { "name-prefix",   required_argument,   0,   'p' },
-  { "include",       required_argument,   0,   'I' },
 
   /* Output. */
   { "file-prefix", required_argument,   0,   'b' },
@@ -584,7 +525,6 @@ static struct option const long_options[] =
   { "force-define",   required_argument,         0,   'F' },
   { "locations",      no_argument,               0, LOCATIONS_OPTION },
   { "no-lines",       no_argument,               0,   'l' },
-  { "raw",            no_argument,               0,     0 },
   { "skeleton",       required_argument,         0,   'S' },
   { "language",       required_argument,         0,   'L' },
   { "token-table",    no_argument,               0,   'k' },
@@ -593,7 +533,7 @@ static struct option const long_options[] =
 };
 
 /* Under DOS, there is no difference on the case.  This can be
-   troublesome when looking for `.tab' etc.  */
+   troublesome when looking for '.tab' etc.  */
 #ifdef MSDOS
 # define AS_FILE_NAME(File) (strlwr (File), (File))
 #else
@@ -629,22 +569,34 @@ getargs (int argc, char *argv[])
         /* Certain long options cause getopt_long to return 0.  */
         break;
 
-      case 'D': /* -DNAME[=VALUE]. */
-      case 'F': /* -FNAME[=VALUE]. */
+      case 'D': /* -DNAME[=(VALUE|"VALUE"|{VALUE})]. */
+      case 'F': /* -FNAME[=(VALUE|"VALUE"|{VALUE})]. */
         {
-          char* name = optarg;
-          char* value = strchr (optarg, '=');
+          char *name = optarg;
+          char *value = strchr (optarg, '=');
+          muscle_kind kind = muscle_keyword;
           if (value)
-            *value++ = 0;
+            {
+              char *end = value + strlen (value) - 1;
+              *value++ = 0;
+              if (*value == '{' && *end == '}')
+                {
+                  kind = muscle_code;
+                  ++value;
+                  *end = 0;
+                }
+              else if (*value == '"' && *end == '"')
+                {
+                  kind = muscle_string;
+                  ++value;
+                  *end = 0;
+                }
+            }
           muscle_percent_define_insert (name, command_line_location (),
-                                        value ? value : "",
+                                        kind, value ? value : "",
                                         c == 'D' ? MUSCLE_PERCENT_DEFINE_D
                                                  : MUSCLE_PERCENT_DEFINE_F);
         }
-        break;
-
-      case 'I':
-        include = AS_FILE_NAME (optarg);
         break;
 
       case 'L':
@@ -670,7 +622,7 @@ getargs (int argc, char *argv[])
         break;
 
       case 'W':
-        FLAGS_ARGMATCH (warnings, optarg, Wall);
+        warnings_argmatch (optarg);
         break;
 
       case 'b':
@@ -721,7 +673,8 @@ getargs (int argc, char *argv[])
 
       case 't':
         muscle_percent_define_insert ("parse.trace",
-                                      command_line_location (), "",
+                                      command_line_location (),
+                                      muscle_keyword, "",
                                       MUSCLE_PERCENT_DEFINE_D);
         break;
 
@@ -739,8 +692,7 @@ getargs (int argc, char *argv[])
         break;
 
       case 'y':
-        warnings_flag |= Wyacc;
-        errors_flag |= Wyacc;
+        warning_argmatch ("error=yacc", 0, 6);
         yacc_flag = true;
         break;
 

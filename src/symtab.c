@@ -153,13 +153,13 @@ symbol_print (symbol const *s, FILE *f)
 {
   if (s)
     {
-      fprintf (f, "\"%s\"", s->tag);
+      fputs (s->tag, f);
       SYMBOL_ATTR_PRINT (type_name);
       SYMBOL_CODE_PRINT (destructor);
       SYMBOL_CODE_PRINT (printer);
     }
   else
-    fprintf (f, "<NULL>");
+    fputs ("<NULL>", f);
 }
 
 #undef SYMBOL_ATTR_PRINT
@@ -243,9 +243,12 @@ symbol_type_set (symbol *sym, uniqstr type_name, location loc)
     {
       if (sym->type_name)
         symbol_redeclaration (sym, "%type", sym->type_location, loc);
-      uniqstr_assert (type_name);
-      sym->type_name = type_name;
-      sym->type_location = loc;
+      else
+        {
+          uniqstr_assert (type_name);
+          sym->type_name = type_name;
+          sym->type_location = loc;
+        }
     }
 }
 
@@ -261,7 +264,8 @@ symbol_code_props_set (symbol *sym, code_props_type kind,
     symbol_redeclaration (sym, code_props_type_string (kind),
                           sym->props[kind].location,
                           code->location);
-  sym->props[kind] = *code;
+  else
+    sym->props[kind] = *code;
 }
 
 /*-----------------------------------------------------.
@@ -277,7 +281,8 @@ semantic_type_code_props_set (semantic_type *type,
     semantic_type_redeclaration (type, code_props_type_string (kind),
                                  type->props[kind].location,
                                  code->location);
-  type->props[kind] = *code;
+  else
+    type->props[kind] = *code;
 }
 
 /*---------------------------------------------------.
@@ -321,12 +326,15 @@ symbol_precedence_set (symbol *sym, int prec, assoc a, location loc)
 {
   if (a != undef_assoc)
     {
-      if (sym->prec != 0)
+      if (sym->prec)
         symbol_redeclaration (sym, assoc_to_string (a), sym->prec_location,
                               loc);
-      sym->prec = prec;
-      sym->assoc = a;
-      sym->prec_location = loc;
+      else
+        {
+          sym->prec = prec;
+          sym->assoc = a;
+          sym->prec_location = loc;
+        }
     }
 
   /* Only terminals have a precedence. */
@@ -360,7 +368,8 @@ symbol_class_set (symbol *sym, symbol_class class, location loc, bool declaring)
     {
       if (sym->status == declared && !warned)
         complain (&loc, Wother, _("symbol %s redeclared"), sym->tag);
-      sym->status = declared;
+      else
+        sym->status = declared;
     }
 }
 
@@ -441,7 +450,7 @@ semantic_type_check_defined (semantic_type *sem_type)
   /* <*> and <> do not have to be "declared".  */
   if (sem_type->status == declared
       || !*sem_type->tag
-      || STREQ(sem_type->tag, "*"))
+      || STREQ (sem_type->tag, "*"))
     {
       int i;
       for (i = 0; i < 2; ++i)
@@ -615,8 +624,8 @@ symbol_translation (symbol *this)
           (this->user_token_number,
            symbols[token_translations[this->user_token_number]],
            this);
-
-      token_translations[this->user_token_number] = this->number;
+      else
+        token_translations[this->user_token_number] = this->number;
     }
 
   return true;
@@ -1101,7 +1110,7 @@ static void
 init_assoc (void)
 {
   graphid i;
-  used_assoc = xcalloc(nsyms, sizeof(*used_assoc));
+  used_assoc = xcalloc (nsyms, sizeof *used_assoc);
   for (i = 0; i < nsyms; ++i)
     used_assoc[i] = false;
 }
@@ -1153,14 +1162,14 @@ print_precedence_warnings (void)
           && !prec_nodes[i]->succ)
         {
           if (is_assoc_useless (s))
-            complain (&s->location, Wprecedence,
+            complain (&s->prec_location, Wprecedence,
                       _("useless precedence and associativity for %s"), s->tag);
           else if (s->assoc == precedence_assoc)
-            complain (&s->location, Wprecedence,
+            complain (&s->prec_location, Wprecedence,
                       _("useless precedence for %s"), s->tag);
         }
       else if (is_assoc_useless (s))
-        complain (&s->location, Wprecedence,
+        complain (&s->prec_location, Wprecedence,
                   _("useless associativity for %s, use %%precedence"), s->tag);
     }
   free (used_assoc);

@@ -18,6 +18,68 @@
 AT_BANNER([[C++ Features.]])
 
 
+## --------------- ##
+## C++ Locations.  ##
+## --------------- ##
+
+AT_SETUP([C++ Locations])
+
+AT_BISON_OPTION_PUSHDEFS([%locations %skeleton "lalr1.cc"])
+AT_DATA_GRAMMAR([[input.y]],
+[[%code {#include <sstream>}
+%locations
+%debug
+%skeleton "lalr1.cc"
+%code
+{
+]AT_YYERROR_DECLARE[
+]AT_YYLEX_DECLARE[
+}
+%%
+exp: %empty;
+%%
+]AT_YYERROR_DEFINE[
+]AT_YYLEX_DEFINE[
+
+template <typename T>
+bool
+check (const T& in, const std::string& s)
+{
+  std::stringstream os;
+  os << in;
+  if (os.str () != s)
+    {
+      std::cerr << "fail: " << os.str () << ", expected: " << s << std::endl;
+      return false;
+    }
+  return true;
+}
+
+int
+main (void)
+{
+  int fail = 0;
+  ]AT_YYLTYPE[ loc;  fail += check (loc, "1.1");
+  loc += 10;         fail += check (loc, "1.1-10");
+  loc += -5;         fail += check (loc, "1.1-5");
+  loc -= 5;          fail += check (loc, "1.1");
+  // Check that we don't go below.
+  // http://lists.gnu.org/archive/html/bug-bison/2013-02/msg00000.html
+  loc -= 10;         fail += check (loc, "1.1");
+
+  loc.columns (10); loc.lines (10); fail += check (loc, "1.1-11.0");
+  loc.lines (-2);                   fail += check (loc, "1.1-9.0");
+  loc.lines (-10);                  fail += check (loc, "1.1");
+  return !fail;
+}
+]])
+
+AT_FULL_COMPILE([input])
+AT_PARSER_CHECK([./input], 0)
+AT_BISON_OPTION_POPDEFS
+AT_CLEANUP
+
+
 ## --------------------------- ##
 ## C++ Variant-based Symbols.  ##
 ## --------------------------- ##
@@ -263,8 +325,8 @@ AT_TEST([%define parse.assert])
 AT_TEST([%locations %define parse.assert])
 AT_TEST([[%define parse.assert %code {\n#define TWO_STAGE_BUILD\n}]])
 AT_TEST([[%define parse.assert %define api.token.constructor]])
-AT_TEST([[%define parse.assert %define api.token.constructor %define api.token.prefix "TOK_"]])
-AT_TEST([[%locations %define parse.assert %define api.token.constructor %define api.token.prefix "TOK_"]])
+AT_TEST([[%define parse.assert %define api.token.constructor %define api.token.prefix {TOK_}]])
+AT_TEST([[%locations %define parse.assert %define api.token.constructor %define api.token.prefix {TOK_}]])
 
 m4_popdef([AT_TEST])
 
@@ -361,10 +423,10 @@ AT_CHECK_DOXYGEN([Private])
 # is specified, then Bison should accept the input, but compilation will fail,
 # so don't check compilation.
 m4_pushdef([AT_TEST],
-[AT_BISON_OPTION_PUSHDEFS([%language "C++" %define api.namespace "$1"])
+[AT_BISON_OPTION_PUSHDEFS([%language "C++" %define api.namespace {$1}])
 AT_DATA_GRAMMAR([[input.y]],
 [[%language "C++"
-%define api.namespace "]$1["
+%define api.namespace {]$1[}
 %union { int i; }
 %define global_tokens_and_yystype
 %locations
@@ -420,8 +482,8 @@ AT_CLEANUP
 AT_SETUP([[Syntactically invalid namespace references]])
 AT_TEST([[:foo:bar]], [[-]])
 AT_TEST([[foo: :bar]], [[-]])
-# This one is interesting because `[3]' is encoded as `@<:@3@:>@', which
-# contains single occurrences of `:'.
+# This one is interesting because '[3]' is encoded as '@<:@3@:>@', which
+# contains single occurrences of ':'.
 AT_TEST([[foo[3]::bar::baz]], [[-]])
 AT_TEST([[foo::bar,baz]], [[-]])
 AT_TEST([[foo::bar::(baz /* Pacify Emacs ) */]], [[-]])
@@ -613,14 +675,42 @@ $1
   /// A class that counts its number of instances.
   struct Object
   {
+    char val;
+
+    Object (char v)
+      : val (v)
+    {
+      Object::instances.push_back(this);
+      log (this, "Object::Object");
+    }
+
+    Object ()
+      : val ('?')
+    {
+      Object::instances.push_back(this);
+      log (this, "Object::Object");
+    }
+
+    Object& operator= (char v)
+    {
+      val = v;
+      return *this;
+    }
+
+    ~Object ()
+    {
+      Object::instances.remove (this);
+      log (this, "Object::~Object");
+    }
+
+    // Static part.
     typedef std::list<const Object*> objects;
     static objects instances;
-    char val;
 
     static bool
     empty ()
     {
-      return instances.empty();
+      return instances.empty ();
     }
 
     static void
@@ -642,26 +732,6 @@ $1
             }
           std::cerr << " }" << std::endl;
         }
-    }
-
-    Object (char v)
-      : val (v)
-    {
-      instances.push_back(this);
-      log (this, "Object::Object");
-    }
-
-    Object ()
-      : val ('?')
-    {
-      instances.push_back(this);
-      log (this, "Object::Object");
-    }
-
-    ~Object ()
-    {
-      instances.remove(this);
-      log (this, "Object::~Object");
     }
   };
 }
@@ -720,16 +790,16 @@ list:
 ;
 
 item:
-  'a'  { $$][ = $][1; }
-| 'e'  { YYUSE ($][$); YYUSE($][1); error ("syntax error"); }
+  'a'     { $$][ = $][1; }
+| 'e'     { YYUSE ($][$); YYUSE($][1); error ("syntax error"); }
 // Not just 'E', otherwise we reduce when 'E' is the lookahead, and
 // then the stack is emptied, defeating the point of the test.
 | 'E' 'a' { YYUSE($][1); $][$ = $][2; }
-| 'R'  { $][$ = YY_NULL; ]AT_VARIANT_IF([], [delete $][1]; )[YYERROR; }
-| 'p'  { $][$ = $][1; }
-| 's'  { $][$ = $][1; throw std::runtime_error ("reduction"); }
-| 'T'  { $][$ = YY_NULL; ]AT_VARIANT_IF([], [delete $][1]; )[YYABORT; }
-| error { $][$ = YY_NULL; yyerrok; }
+| 'R'     { $][$ = YY_NULL; ]AT_VARIANT_IF([], [delete $][1]; )[YYERROR; }
+| 'p'     { $][$ = $][1; }
+| 's'     { $][$ = $][1; throw std::runtime_error ("reduction"); }
+| 'T'     { $][$ = YY_NULL; ]AT_VARIANT_IF([], [delete $][1]; )[YYABORT; }
+| error   { $][$ = YY_NULL; yyerrok; }
 ;
 %%
 

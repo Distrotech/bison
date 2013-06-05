@@ -103,7 +103,7 @@ m4_define([b4_int_type],
 # b4_int_type_for(NAME)
 # ---------------------
 # Return the smallest int type able to handle numbers ranging from
-# `NAME_min' to `NAME_max' (included).
+# 'NAME_min' to 'NAME_max' (included).
 m4_define([b4_int_type_for],
 [b4_int_type($1_min, $1_max)])
 
@@ -167,6 +167,22 @@ m4_define([b4_predicate_case], [  case $1:
      if (! ($2)) YYERROR;
     break;
     ])
+
+
+## -------- ##
+## Checks.  ##
+## -------- ##
+
+b4_percent_define_check_kind([[api.value.type]],    [code], [deprecated])
+
+b4_percent_define_check_kind([[annotations]],       [code], [deprecated])
+b4_percent_define_check_kind([[extends]],           [code], [deprecated])
+b4_percent_define_check_kind([[implements]],        [code], [deprecated])
+b4_percent_define_check_kind([[init_throws]],       [code], [deprecated])
+b4_percent_define_check_kind([[lex_throws]],        [code], [deprecated])
+b4_percent_define_check_kind([[parser_class_name]], [code], [deprecated])
+b4_percent_define_check_kind([[throws]],            [code], [deprecated])
+
 
 
 ## ---------------- ##

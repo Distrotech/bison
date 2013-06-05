@@ -143,7 +143,6 @@ m4_define([b4_rhs_value],
           [b4_symbol_value([yyvsp@{b4_subtract([$2], [$1])@}], [$3])])
 
 
-
 ## ----------- ##
 ## Locations.  ##
 ## ----------- ##
@@ -200,7 +199,7 @@ static YYLTYPE yyloc_default][]b4_yyloc_default[;]])])[
 #endif
 
 /* The semantic value of the lookahead symbol.  */
-YYSTYPE yylval YY_INITIAL_VALUE(yyval_default);]b4_locations_if([[
+YYSTYPE yylval YY_INITIAL_VALUE (yyval_default);]b4_locations_if([[
 
 /* Location data for the lookahead symbol.  */
 YYLTYPE yylloc]b4_pure_if([ = yyloc_default], [b4_yyloc_default])[;
@@ -223,9 +222,9 @@ m4_define([b4_declare_parser_state_variables], [b4_pure_if([[
     int yyerrstatus;
 
     /* The stacks and their tools:
-       `yyss': related to states.
-       `yyvs': related to semantic values.]b4_locations_if([[
-       `yyls': related to locations.]])[
+       'yyss': related to states.
+       'yyvs': related to semantic values.]b4_locations_if([[
+       'yyls': related to locations.]])[
 
        Refer to the stacks through separate pointers, to allow yyoverflow
        to reallocate them elsewhere.  */
@@ -431,12 +430,7 @@ typedef short int yytype_int16;
 # endif
 #endif
 
-/* Suppress unused-variable warnings by "using" E.  */
-#ifdef __GNUC__
-# define YYUSE(E) ((void) (E))
-#else
-# define YYUSE(E) /* empty */
-#endif
+]b4_attribute_define[
 
 #if ]b4_lac_if([[1]], [[! defined yyoverflow || YYERROR_VERBOSE]])[
 
@@ -468,7 +462,7 @@ b4_push_if([], [b4_lac_if([], [[
 # endif]])])[
 
 # ifdef YYSTACK_ALLOC
-   /* Pacify GCC's `empty if-body' warning.  */
+   /* Pacify GCC's 'empty if-body' warning.  */
 #  define YYSTACK_FREE(Ptr) do { /* empty */; } while (0)
 #  ifndef YYSTACK_ALLOC_MAXIMUM
     /* The OS might guarantee only one guard page at the bottom of the stack,
@@ -1654,7 +1648,7 @@ yyreduce:
   yylen = yyr2[yyn];
 
   /* If YYLEN is nonzero, implement the default value of the action:
-     `$$ = $1'.
+     '$$ = $1'.
 
      Otherwise, the following line sets YYVAL to garbage.
      This behavior is undocumented and Bison
@@ -1702,7 +1696,7 @@ yyreduce:
   *++yyvsp = yyval;]b4_locations_if([
   *++yylsp = yyloc;])[
 
-  /* Now `shift' the result of the reduction.  Determine what state
+  /* Now 'shift' the result of the reduction.  Determine what state
      that goes to, based on the state we popped back to and the rule
      number reduced by.  */
 

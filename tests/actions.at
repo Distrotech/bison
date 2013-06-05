@@ -64,6 +64,119 @@ AT_PARSER_CHECK([./input], 0,
 
 AT_CLEANUP
 
+## ----------------------- ##
+## Implicitly empty rule.  ##
+## ----------------------- ##
+
+AT_SETUP([Implicitly empty rule])
+
+AT_DATA_GRAMMAR([[1.y]],
+[[%%
+exp: a b;
+a: /* empty. */ {};
+// A mid-rule action does not count as an empty rule.
+b: {} {};
+]])
+
+AT_BISON_CHECK([-fcaret -Wempty-rule 1.y], [0], [],
+[[1.y:11.17-18: warning: empty rule without %empty [-Wempty-rule]
+ a: /* empty. */ {};
+                 ^^
+]])
+
+AT_DATA_GRAMMAR([[2.y]],
+[[%%
+exp: a b c;
+a: /* empty. */ {};
+b: %empty       {};
+c: /* empty. */ {};
+]])
+
+AT_BISON_CHECK([-fcaret 2.y], [0], [],
+[[2.y:11.17-18: warning: empty rule without %empty [-Wempty-rule]
+ a: /* empty. */ {};
+                 ^^
+2.y:13.17-18: warning: empty rule without %empty [-Wempty-rule]
+ c: /* empty. */ {};
+                 ^^
+]])
+
+AT_BISON_CHECK([-fcaret -Wno-empty-rule 2.y], [0])
+
+AT_CLEANUP
+
+## ------------------------ ##
+## Invalid uses of %empty.  ##
+## ------------------------ ##
+
+AT_SETUP([Invalid uses of %empty])
+
+AT_DATA_GRAMMAR([[one.y]],
+[[%%
+exp:
+  %empty {} %empty
+;
+]])
+
+AT_BISON_CHECK([-fcaret one.y], [1], [],
+[[one.y:11.13-18: error: only one %empty allowed per rule
+   %empty {} %empty
+             ^^^^^^
+one.y:11.3-8: previous declaration
+   %empty {} %empty
+   ^^^^^^
+]])
+
+AT_DATA_GRAMMAR([[two.y]],
+[[%%
+exp:
+  'a' %empty    {}
+| %empty 'a'    {}
+| %empty {}     {}
+;
+]])
+
+AT_BISON_CHECK([-fcaret two.y], [1], [],
+[[two.y:11.7-12: error: %empty on non-empty rule
+   'a' %empty    {}
+       ^^^^^^
+two.y:12.3-8: error: %empty on non-empty rule
+ | %empty 'a'    {}
+   ^^^^^^
+two.y:13.3-8: error: %empty on non-empty rule
+ | %empty {}     {}
+   ^^^^^^
+]])
+
+AT_CLEANUP
+
+## ---------------------- ##
+## Valid uses of %empty.  ##
+## ---------------------- ##
+
+AT_SETUP([Valid uses of %empty])
+
+AT_BISON_OPTION_PUSHDEFS
+AT_DATA_GRAMMAR([[input.y]],
+[[
+%debug
+%code
+{
+]AT_YYERROR_DECLARE[
+]AT_YYLEX_DECLARE[
+}
+%%
+exp: %empty {}
+%%
+]AT_YYERROR_DEFINE[
+]AT_YYLEX_DEFINE[
+]AT_MAIN_DEFINE[
+]])
+
+AT_FULL_COMPILE([input])
+AT_PARSER_CHECK([./input])
+AT_BISON_OPTION_POPDEFS
+AT_CLEANUP
 
 ## ------------------ ##
 ## Initial location.  ##
@@ -173,8 +286,8 @@ m4_popdef([AT_TEST])
 ## Location Print.  ##
 ## ---------------- ##
 
-# AT_TEST(SKELETON-NAME, DIRECTIVES, [MORE-DIRECTIVES], [LOCATION = 1.1])
-# -----------------------------------------------------------------------
+# AT_TEST(SKELETON-NAME, DIRECTIVES, [MORE-DIRECTIVES])
+# -----------------------------------------------------
 # Check that the initial location is correct.
 m4_pushdef([AT_TEST],
 [AT_SETUP([Location print: $1 $2])
@@ -192,7 +305,7 @@ AT_DATA_GRAMMAR([[input.y]],
 ]AT_YYLEX_DECLARE[
 }
 %%
-exp: /* empty */;
+exp: %empty;
 %%
 ]AT_YYERROR_DEFINE[
 ]AT_YYLEX_DEFINE[
@@ -415,7 +528,7 @@ AT_LALR1_CC_IF([typedef yy::location YYLTYPE;])[
 %%
 /*
    This grammar is made to exercise error recovery.
-   "Lines" starting with `(' support error recovery, with
+   "Lines" starting with '(' support error recovery, with
    ')' as synchronizing token.  Lines starting with 'x' can never
    be recovered from if in error.
 */
@@ -492,11 +605,11 @@ static
 {
   static unsigned int counter = 0;
 
-  int c = ]AT_VAL[]m4_ifval([$6], [.ival])[ = counter++;
+  unsigned int c = ]AT_VAL[]m4_ifval([$6], [.ival])[ = counter++;
   /* As in BASIC, line numbers go from 10 to 10.  */
   ]AT_LOC_FIRST_LINE[ = ]AT_LOC_FIRST_COLUMN[ = 10 * c;
   ]AT_LOC_LAST_LINE[ = ]AT_LOC_LAST_COLUMN[ = ]AT_LOC_FIRST_LINE[ + 9;
-  assert (0 <= c && c <= strlen (source));
+  assert (c <= strlen (source));
   if (source[c])
     fprintf (stderr, "sending: '%c'", source[c]);
   else
@@ -578,7 +691,7 @@ Successful parse.
 
 # Syntax errors caught by the parser
 # ----------------------------------
-# Exercise the discarding of stack top and input until `error'
+# Exercise the discarding of stack top and input until 'error'
 # can be reduced.
 #
 #     '(', 'x', 'x', 'x', 'x', 'x', ')',
@@ -735,13 +848,13 @@ AT_CLEANUP
 
 
 AT_CHECK_PRINTER_AND_DESTRUCTOR([])
-AT_CHECK_PRINTER_AND_DESTRUCTOR([], [with union])
+AT_CHECK_PRINTER_AND_DESTRUCTOR([], [ with union])
 
 AT_CHECK_PRINTER_AND_DESTRUCTOR([%defines %skeleton "lalr1.cc"])
-AT_CHECK_PRINTER_AND_DESTRUCTOR([%defines %skeleton "lalr1.cc"], [with union])
+AT_CHECK_PRINTER_AND_DESTRUCTOR([%defines %skeleton "lalr1.cc"], [ with union])
 
 AT_CHECK_PRINTER_AND_DESTRUCTOR([%glr-parser])
-AT_CHECK_PRINTER_AND_DESTRUCTOR([%glr-parser], [with union])
+AT_CHECK_PRINTER_AND_DESTRUCTOR([%glr-parser], [ with union])
 
 
 
@@ -1174,7 +1287,7 @@ AT_SETUP([Default %printer and %destructor are not for $accept])
 #   - The %printer and %destructor code generated for $accept would always be
 #     dead code because $accept is currently never shifted onto the stack.
 #   - $$ for $accept would always be of type YYSTYPE because it's not possible
-#     to declare `%type <field> $accept'.  (Also true for $undefined.)
+#     to declare '%type <field> $accept'.  (Also true for $undefined.)
 #   - Thus, the compiler might complain that the user code assumes the wrong
 #     type for $$ since the code might assume the type associated with a
 #     specific union field, which is especially reasonable in C++ since that
@@ -1494,115 +1607,6 @@ AT_TEST([glr.cc])
 
 m4_popdef([AT_TEST])
 
-## ----------------------------------------------- ##
-## Fix user actions without a trailing semicolon.  ##
-## ----------------------------------------------- ##
-
-AT_SETUP([[Fix user actions without a trailing semicolon]])
-
-# This feature is undocumented, but we accidentally broke it in 2.3a,
-# and there was a complaint at:
-# <http://lists.gnu.org/archive/html/bug-bison/2008-11/msg00001.html>.
-AT_BISON_OPTION_PUSHDEFS
-AT_DATA([input.y],
-[[%%
-start: test2 test1 test0 testc;
-
-test2
-: 'a' { semi;                   /* TEST:N:2 */ }
-| 'b' { if (0) {no_semi}        /* TEST:N:2 */ }
-| 'c' { if (0) {semi;}          /* TEST:N:2 */ }
-| 'd' { semi;   no_semi         /* TEST:Y:2 */ }
-| 'e' { semi(); no_semi()       /* TEST:Y:2 */ }
-| 'f' { semi[]; no_semi[]       /* TEST:Y:2 */ }
-| 'g' { semi++; no_semi++       /* TEST:Y:2 */ }
-| 'h' { {no_semi} no_semi       /* TEST:Y:2 */ }
-| 'i' { {semi;}   no_semi       /* TEST:Y:2 */ }
-;
-test1
-  : 'a' { semi;                 // TEST:N:1 ;
-} | 'b' { if (0) {no_semi}      // TEST:N:1 ;
-} | 'c' { if (0) {semi;}        // TEST:N:1 ;
-} | 'd' { semi;   no_semi       // TEST:Y:1 ;
-} | 'e' { semi(); no_semi()     // TEST:Y:1 ;
-} | 'f' { semi[]; no_semi[]     // TEST:Y:1 ;
-} | 'g' { semi++; no_semi++     // TEST:Y:1 ;
-} | 'h' { {no_semi} no_semi     // TEST:Y:1 ;
-} | 'i' { {semi;}   no_semi     // TEST:Y:1 ;
-} ;
-test0
-  : 'a' { semi;                 // TEST:N:1 {}
-} | 'b' { if (0) {no_semi}      // TEST:N:1 {}
-} | 'c' { if (0) {semi;}        // TEST:N:1 {}
-} | 'd' { semi;   no_semi       // TEST:Y:1 {}
-} | 'e' { semi(); no_semi()     // TEST:Y:1 {}
-} | 'f' { semi[]; no_semi[]     // TEST:Y:1 {}
-} | 'g' { semi++; no_semi++     // TEST:Y:1 {}
-} | 'h' { {no_semi} no_semi     // TEST:Y:1 {}
-} | 'i' { {semi;}   no_semi     // TEST:Y:1 {}
-} ;
-
-testc
-: 'a' {
-#define TEST_MACRO_N \
-[]"broken\" $ @ $$ @$ [];\
-string;"}
-| 'b' {
-no_semi
-#define TEST_MACRO_N \
-[]"broken\" $ @ $$ @$ [];\
-string;"}
-]])
-AT_BISON_OPTION_POPDEFS
-
-AT_BISON_CHECK([[-o input.c input.y]], [0], [],
-[[input.y:8.48: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:8.48:     future versions of Bison will not add the ';'
-input.y:9.48: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:9.48:     future versions of Bison will not add the ';'
-input.y:10.48: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:10.48:     future versions of Bison will not add the ';'
-input.y:11.48: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:11.48:     future versions of Bison will not add the ';'
-input.y:12.48: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:12.48:     future versions of Bison will not add the ';'
-input.y:13.48: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:13.48:     future versions of Bison will not add the ';'
-input.y:20.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:20.1:     future versions of Bison will not add the ';'
-input.y:21.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:21.1:     future versions of Bison will not add the ';'
-input.y:22.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:22.1:     future versions of Bison will not add the ';'
-input.y:23.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:23.1:     future versions of Bison will not add the ';'
-input.y:24.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:24.1:     future versions of Bison will not add the ';'
-input.y:25.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:25.1:     future versions of Bison will not add the ';'
-input.y:31.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:31.1:     future versions of Bison will not add the ';'
-input.y:32.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:32.1:     future versions of Bison will not add the ';'
-input.y:33.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:33.1:     future versions of Bison will not add the ';'
-input.y:34.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:34.1:     future versions of Bison will not add the ';'
-input.y:35.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:35.1:     future versions of Bison will not add the ';'
-input.y:36.1: warning: a ';' might be needed at the end of action code [-Wdeprecated]
-input.y:36.1:     future versions of Bison will not add the ';'
-]])
-
-AT_MATCHES_CHECK([input.c], [[/\* TEST:N:2 \*/ \}$]],       [[3]])
-AT_MATCHES_CHECK([input.c], [[/\* TEST:Y:2 \*/ ;\}$]],      [[6]])
-AT_MATCHES_CHECK([input.c], [[// TEST:N:1 [;{}]*\n\}$]],    [[6]])
-AT_MATCHES_CHECK([input.c], [[// TEST:Y:1 [;{}]*\n;\}$]],  [[12]])
-AT_MATCHES_CHECK([input.c], [[#define TEST_MACRO_N \\\n\[\]"broken\\" \$ \@ \$\$ \@\$ \[\];\\\nstring;"\}]], [[2]])
-
-AT_CLEANUP
-
-
 ## -------------------------------------------------- ##
 ## Destroying lookahead assigned by semantic action.  ##
 ## -------------------------------------------------- ##
@@ -1637,7 +1641,7 @@ AT_DATA_GRAMMAR([input.y],
 // that has set yychar might not always return normally.  Instead,
 // skeletons must translate before every use of yytoken.
 start: 'a' accept { USE($1); } ;
-accept: /*empty*/ {
+accept: %empty {
   assert (yychar == YYEMPTY);
   yychar = 'b';
   YYACCEPT;

@@ -28,17 +28,67 @@
 | --warnings.  |
 `-------------*/
 
+/** The bits assigned to each warning type.  */
 typedef enum
   {
-    Wnone             = 0,       /**< Issue no warnings.  */
-    Wmidrule_values   = 1 << 0,  /**< Unset or unused midrule values.  */
-    Wyacc             = 1 << 1,  /**< POSIXME.  */
-    Wconflicts_sr     = 1 << 2,  /**< S/R conflicts.  */
-    Wconflicts_rr     = 1 << 3,  /**< R/R conflicts.  */
-    Wdeprecated       = 1 << 4,  /**< Obsolete constructs.  */
-    Wprecedence       = 1 << 5,  /**< Useless precedence and associativity.  */
+    warning_midrule_values, /**< Unset or unused midrule values.  */
+    warning_yacc,           /**< POSIXME.  */
+    warning_conflicts_sr,   /**< S/R conflicts.  */
+    warning_conflicts_rr,   /**< R/R conflicts.  */
+    warning_empty_rule,     /**< Implicitly empty rules.  */
+    warning_deprecated,     /**< Obsolete constructs.  */
+    warning_precedence,     /**< Useless precedence and associativity.  */
+    warning_other,          /**< All other warnings.  */
 
-    Wother            = 1 << 6,  /**< All other warnings.  */
+    warnings_size           /**< The number of warnings.  Must be last.  */
+  } warning_bit;
+
+/** Whether -Werror was set. */
+extern bool warnings_are_errors;
+
+/** Decode a single argument from -W.
+ *
+ *  \param arg      the subarguments to decode.
+ *                  If null, then activate all the flags.
+ *  \param no       length of the potential "no-" prefix.
+ *                  Can be 0 or 3. If 3, negate the action of the subargument.
+ *  \param err      length of a potential "error=".
+ *                  Can be 0 or 6. If 6, treat the subargument as a CATEGORY.
+ *
+ *  If VALUE != 0 then KEY sets flags and no-KEY clears them.
+ *  If VALUE == 0 then KEY clears all flags from \c all and no-KEY sets all
+ *  flags from \c all.  Thus no-none = all and no-all = none.
+ */
+void warning_argmatch (char const *arg, size_t no, size_t err);
+
+/** Decode a comma-separated list of arguments from -W.
+ *
+ *  \param args     comma separated list of effective subarguments to decode.
+ *                  If 0, then activate all the flags.
+ */
+void warnings_argmatch (char *args);
+
+
+/*-----------.
+| complain.  |
+`-----------*/
+
+/** Initialize this module.  */
+void complain_init (void);
+
+typedef enum
+  {
+    /**< Issue no warnings.  */
+    Wnone             = 0,
+
+    Wmidrule_values   = 1 << warning_midrule_values,
+    Wyacc             = 1 << warning_yacc,
+    Wconflicts_sr     = 1 << warning_conflicts_sr,
+    Wconflicts_rr     = 1 << warning_conflicts_rr,
+    Wdeprecated       = 1 << warning_deprecated,
+    Wempty_rule       = 1 << warning_empty_rule,
+    Wprecedence       = 1 << warning_precedence,
+    Wother            = 1 << warning_other,
 
     Werror            = 1 << 10, /** This bit is no longer used. */
 
@@ -48,17 +98,13 @@ typedef enum
     no_caret          = 1 << 14, /**< Do not display caret location.  */
 
     /**< All above warnings.  */
-    Wall              = ~complaint & ~fatal & ~silent
+    Weverything       = ~complaint & ~fatal & ~silent,
+    Wall              = Weverything & ~Wyacc
   } warnings;
 
-/** What warnings are issued.  */
-extern warnings warnings_flag;
-
-/** What warnings are made errors.  */
-extern warnings errors_flag;
-
-/** Display a "[-Wyacc]" like message on stderr.  */
-void warnings_print_categories (warnings warn_flags);
+/** Whether the warnings of \a flags are all unset.
+    (Never enabled, never disabled). */
+bool warning_is_unset (warnings flags);
 
 /** Make a complaint, with maybe a location.  */
 void complain (location const *loc, warnings flags, char const *message, ...)
@@ -77,6 +123,10 @@ void complain_indent (location const *loc, warnings flags, unsigned *indent,
 /** Report an obsolete syntax, suggest the updated one.  */
 void deprecated_directive (location const *loc,
                            char const *obsolete, char const *updated);
+
+/** Report a repeated directive for a rule.  */
+void duplicate_directive (char const *directive,
+                          location first, location second);
 
 /** Warnings treated as errors shouldn't stop the execution as regular errors
     should (because due to their nature, it is safe to go on). Thus, there are

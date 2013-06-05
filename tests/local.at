@@ -37,7 +37,7 @@ m4_define([AT_SETUP_STRIP],
 [m4_bpatsubsts([$1],
       [%\(language\|skeleton\) "?\([^\" ]*\)"?],
         [\2],
-      [%define "?\([-A-Za-z0-9_.]+\)"? \("[^\"]+"\|[-A-Za-z0-9_.]+\)],
+      [%define "?\([-A-Za-z0-9_.]+\)"? \({[^\}]+}\|"[^\"]+"\|[-A-Za-z0-9_.]+\)],
         [\1=\2],
       [%define "?\([-A-Za-z0-9_.]+\)"?],
         [\1],
@@ -134,7 +134,7 @@ m4_define([AT_BISON_OPTION_PUSHDEFS],
 # _AT_BISON_OPTION_PUSHDEFS($1, $2, [BISON-OPTIONS])
 # --------------------------------------------------
 # This macro works around the impossibility to define macros
-# inside macros, because issuing `[$1]' is not possible in M4 :(.
+# inside macros, because issuing '[$1]' is not possible in M4 :(.
 # This sucks hard, GNU M4 should really provide M5-like $$1.
 m4_define([_AT_BISON_OPTION_PUSHDEFS],
 [m4_if([$1$2], $[1]$[2], [],
@@ -178,23 +178,25 @@ m4_bpatsubst([$3], [%parse-param { *\([^{}]*[^{} ]\) *}],
 
 m4_pushdef([AT_PURE_IF],
 [m4_bmatch([$3], [%define  *api\.pure\|%pure-parser],
-           [m4_bmatch([$3], [%define  *api\.pure *"?false"?], [$2], [$1])],
+           [m4_bmatch([$3], [%define  *api\.pure *false], [$2], [$1])],
            [$2])])
 # AT_NAME_PREFIX: also consider api.namespace.
 m4_pushdef([AT_NAME_PREFIX],
-[m4_bmatch([$3], [\(%define api\.\(namespace\|prefix\)\|%name-prefix\) ".*"],
-           [m4_bregexp([$3], [\(%define api\.\(namespace\|prefix\)\|%name-prefix\) "\([^""]*\)"], [\3])],
-           [yy])])
+[m4_bmatch([$3], [\(%define api\.\(namespace\|prefix\)\|%name-prefix\) .*],
+   [m4_bregexp([$3],
+     [\(%define api\.\(namespace\|prefix\)\|%name-prefix\) [\{\"]\([^\"\}]*\)[\"\}]],
+     [\3])],
+   [yy])])
 m4_pushdef([AT_TOKEN_CTOR_IF],
 [m4_bmatch([$3], [%define api\.token\.constructor], [$1], [$2])])
 m4_pushdef([AT_TOKEN_PREFIX],
-[m4_bmatch([$3], [%define api\.token\.prefix ".*"],
-           [m4_bregexp([$3], [%define api\.token\.prefix "\(.*\)"], [\1])])])
+[m4_bmatch([$3], [%define api\.token\.prefix {.*}],
+           [m4_bregexp([$3], [%define api\.token\.prefix {\(.*\)}], [\1])])])
 m4_pushdef([AT_VARIANT_IF],
-[m4_bmatch([$3], [%define api\.value\.type "?variant"?], [$1], [$2])])
+[m4_bmatch([$3], [%define api\.value\.type variant], [$1], [$2])])
 m4_pushdef([AT_API_prefix],
-[m4_bmatch([$3], [%define api\.prefix ".*"],
-           [m4_bregexp([$3], [%define api\.prefix "\([^""]*\)"], [\1])],
+[m4_bmatch([$3], [%define api\.prefix {.*}],
+           [m4_bregexp([$3], [%define api\.prefix {\([^\}]*\)}], [\1])],
            [yy])])
 m4_pushdef([AT_API_PREFIX],
 [m4_toupper(AT_API_prefix)])
@@ -205,7 +207,7 @@ m4_pushdef([AT_API_PREFIX],
 m4_pushdef([AT_YYERROR_ARG_LOC_IF],
 [AT_LOCATION_IF([AT_PURE_IF([m4_bmatch([$3],
                                        m4_quote(m4_join([\|],
-                                                        [%define api\.pure "?full"?],
+                                                        [%define api\.pure full],
                                                         [%glr-parser],
                                                         [%parse-param],
                                                         [%skeleton "?glr.c"?])),
@@ -442,7 +444,7 @@ m4_define([AT_MAIN_DEFINE],   [AT_LANG_DISPATCH([$0], $@)])
 ## --- ##
 
 m4_define([AT_YYERROR_FORMALS(c)],
-[AT_YYERROR_ARG_LOC_IF([AT_YYLTYPE const * const llocp, ])AT_PARSE_PARAMS [const char *msg]])
+[AT_YYERROR_ARG_LOC_IF([AT_YYLTYPE const * const llocp, ])AT_PARSE_PARAMS[const char *msg]])
 
 m4_define([AT_YYERROR_PROTOTYPE(c)],
 [[void ]AT_NAME_PREFIX[error (]AT_YYERROR_FORMALS[)]])
@@ -599,7 +601,7 @@ m4_define([AT_MAIN_DEFINE(java)],
 # High-level routine that may call bison several times, under different
 # conditions.
 #
-# Check Bison by invoking `bison BISON_ARGS'.  BISON_ARGS should not contain
+# Check Bison by invoking 'bison BISON_ARGS'.  BISON_ARGS should not contain
 # shell constructs (such as redirection or pipes) that would prevent
 # appending additional command-line arguments for bison. OTHER_AT_CHECK_ARGS
 # are the usual remaining arguments to AT_CHECK: STATUS, STDOUT, etc.
@@ -876,7 +878,7 @@ AT_PARSER_CHECK([./c-and-cxx])
 
 # AT_PARSER_CHECK(COMMAND, EXIT-STATUS, EXPOUT, EXPERR, [PRE])
 # ------------------------------------------------------------
-# So that we can run `./testsuite PREPARSER='valgrind -q' for instance.
+# So that we can run './testsuite PREPARSER='valgrind -q' for instance.
 #
 # Get rid of spurious messages when compiled with --coverage:
 # +profiling:/[...]/lib/fprintf.gcda:Merge mismatch for summaries
@@ -918,16 +920,16 @@ m4_define([AT_JAVA_PARSER_CHECK],
 # that Bison exits with value 0, has no stdout, and has stderr
 # BISON-STDERR.
 #
-# If TEST-SPEC contains the attribute `last-state', check that the value
+# If TEST-SPEC contains the attribute 'last-state', check that the value
 # of TABLES-OR-LAST-STATE is the index of the last state generated for
 # the grammar; in other words, check the number of states (minus one).
-# Otherwise, check that everything in the `.output' file starting with
+# Otherwise, check that everything in the '.output' file starting with
 # the definition of state 0 is the same as the entire value of
 # TABLES-OR-LAST-STATE.
 #
 # Expand the M4 in OTHER-CHECKS to perform additional checks of the
-# `.output' file, which is named `input.output', and/or grammar file,
-# which is named `input.y'.
+# '.output' file, which is named 'input.output', and/or grammar file,
+# which is named 'input.y'.
 #
 # Finally, compile the generated parser and then run it using
 # AT_PARSER_CHECK with PARSER-EXIT-VALUE, PARSER-STDOUT, and

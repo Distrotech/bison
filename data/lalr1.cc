@@ -17,6 +17,8 @@
 
 m4_include(b4_pkgdatadir/[c++.m4])
 
+# api.value.type=variant is valid.
+m4_define([b4_value_type_setup_variant])
 
 # b4_integral_parser_table_declare(TABLE-NAME, CONTENT, COMMENT)
 # --------------------------------------------------------------
@@ -38,13 +40,14 @@ m4_define([b4_integral_parser_table_define],
   };dnl
 ])
 
-
 # b4_symbol_value_template(VAL, [TYPE])
 # -------------------------------------
 # Same as b4_symbol_value, but used in a template method.  It makes
-# a difference when using variants.
+# a difference when using variants.  Note that b4_value_type_setup_union
+# overrides b4_symbol_value, so we must override it again.
 m4_copy([b4_symbol_value], [b4_symbol_value_template])
-
+m4_append([b4_value_type_setup_union],
+          [m4_copy_force([b4_symbol_value_union], [b4_symbol_value_template])])
 
 # b4_lhs_value([TYPE])
 # --------------------
@@ -201,6 +204,10 @@ b4_location_define])])[
     void error (const syntax_error& err);
 
   private:
+    /// This class is not copyable.
+    ]b4_parser_class_name[ (const ]b4_parser_class_name[&);
+    ]b4_parser_class_name[& operator= (const ]b4_parser_class_name[&);
+
     /// State numbers.
     typedef int state_type;
 
@@ -591,13 +598,7 @@ m4_if(b4_prefix, [yy], [],
       YY_SYMBOL_PRINT (yymsg, yysym);]b4_variant_if([], [
 
     // User destructor.
-    symbol_number_type yytype = yysym.type_get ();
-    switch (yytype)
-      {
-]b4_symbol_foreach([b4_symbol_destructor])dnl
-[       default:
-          break;
-      }])[
+    b4_symbol_actions([destructor], [yysym.type_get ()])])[
   }
 
 #if ]b4_api_PREFIX[DEBUG
@@ -612,12 +613,7 @@ m4_if(b4_prefix, [yy], [],
     yyo << (yytype < yyntokens_ ? "token" : "nterm")
         << ' ' << yytname_[yytype] << " ("]b4_locations_if([
         << yysym.location << ": "])[;
-    switch (yytype)
-      {
-]b4_symbol_foreach([b4_symbol_printer])dnl
-[       default:
-          break;
-      }
+    ]b4_symbol_actions([printer])[
     yyo << ')';
   }
 #endif
@@ -737,7 +733,7 @@ b4_dollar_popdef])[]dnl
        yynewstate, since the latter expects the semantical and the
        location values to have been already stored, initialize these
        stacks with a primary value.  */
-    yystack_ = stack_type (0);
+    yystack_.clear ();
     yypush_ (YY_NULL, 0, yyla);
 
     // A new symbol was pushed on the stack.
@@ -824,7 +820,7 @@ b4_dollar_popdef])[]dnl
        variants.  */
     b4_symbol_variant([[yyr1_@{yyn@}]], [yylhs.value], [build])],[
     /* If YYLEN is nonzero, implement the default value of the action:
-       `$$ = $1'.  Otherwise, use the top of the stack.
+       '$$ = $1'.  Otherwise, use the top of the stack.
 
        Otherwise, the following line sets YYLHS.VALUE to garbage.
        This behavior is undocumented and Bison

@@ -263,11 +263,11 @@ AT_CHECK([cat input.output], [],
 
     0 $accept: expr $end
 
-    1 $@1: /* empty */
+    1 $@1: %empty
 
     2 expr: 'a' $@1 'b'
 
-    3 $@2: /* empty */
+    3 $@2: %empty
 
     4 expr: $@2 'c'
 
@@ -373,13 +373,13 @@ AT_DATA([input.y],
 %token  <operator>  LE 134  "<="
 %left  OR  "<="
 %%
-exp: ;
+exp: %empty;
 %%
 ]])
 
 AT_BISON_CHECK([-v -Wall -o input.c input.y], 0, [],
-[[input.y:1.29-32: warning: useless precedence and associativity for "||" [-Wprecedence]
-input.y:2.29-32: warning: useless precedence and associativity for "<=" [-Wprecedence]
+[[input.y:3.1-5: warning: useless precedence and associativity for "||" [-Wprecedence]
+input.y:3.1-5: warning: useless precedence and associativity for "<=" [-Wprecedence]
 ]])
 
 AT_CLEANUP
@@ -573,7 +573,7 @@ AT_CHECK([cat input.output], 0,
     2 CONST_DEC_LIST: CONST_DEC
     3               | CONST_DEC_LIST CONST_DEC
 
-    4 $@1: /* empty */
+    4 $@1: %empty
 
     5 CONST_DEC: $@1 undef_id_tok '=' const_id_tok ';'
 
@@ -721,7 +721,7 @@ AT_KEYWORDS([report])
 AT_DATA([input.y],
 [[%%
 statement:  struct_stat;
-struct_stat:  /* empty. */ | if else;
+struct_stat:  %empty | if else;
 if: "if" "const" "then" statement;
 else: "else" statement;
 %%
@@ -869,7 +869,7 @@ type: DATA
    | INVALID
    ;
 
-body: /* empty */
+body: %empty
    | body member
    ;
 
@@ -929,7 +929,7 @@ $1
 %token B
 
 %%
-program: /* empty */
+program: %empty
  | program e ';'
  | program error ';';
 
@@ -1145,15 +1145,15 @@ sr_conflict:
 ]AT_YYLEX_DEFINE([{ 1, 2, 3, 0 }])[
 ]AT_MAIN_DEFINE[
 ]])
-AT_BISON_OPTION_POPDEFS
 
 AT_BISON_CHECK([[-Wall -o input.c input.y]], [[0]],,
-[[input.y:24.5-19: warning: rule useless in parser due to conflicts: start: start [-Wother]
-input.y:28.5-19: warning: rule useless in parser due to conflicts: sr_conflict: TK2 "tok alias" [-Wother]
-input.y:18.7-9: warning: useless precedence and associativity for TK1 [-Wprecedence]
+[[input.y:24.5-19: warning: rule useless in parser due to conflicts [-Wother]
+input.y:28.5-19: warning: rule useless in parser due to conflicts [-Wother]
+input.y:18.1-5: warning: useless precedence and associativity for TK1 [-Wprecedence]
 ]])
 AT_COMPILE([[input]])
 AT_PARSER_CHECK([[./input]])
+AT_BISON_OPTION_POPDEFS
 
 AT_CLEANUP
 

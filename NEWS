@@ -2,15 +2,10 @@ GNU Bison NEWS
 
 * Noteworthy changes in release ?.? (????-??-??) [?]
 
+
+* Noteworthy changes in release 2.7.90 (2013-05-30) [beta]
+
 ** WARNING: Future backward-incompatibilities!
-
-  Bison will stop adding a semicolon at the end of the actions (as announced
-  in the release 2.5):
-
-    foo.y:2.22: warning: a ';' might be needed at the end of action code
-     exp: "num" { $$ = $1 }
-                          ^
-    foo.y:2.22:     future versions of Bison will not add the ';'
 
   Like other GNU packages, Bison will start using some of the C99 features
   for its own code, especially the definition of variables after statements.
@@ -28,9 +23,32 @@ GNU Bison NEWS
   Support for YYLEX_PARAM and YYPARSE_PARAM is removed (deprecated in Bison
   1.875): use %lex-param, %parse-param, or %param.
 
+  Missing semicolons at the end of actions are no longer added (as announced
+  in the release 2.5).
+
+*** Use of YACC='bison -y'
+
+  TL;DR: With Autoconf <= 2.69, pass -Wno-yacc to (AM_)YFLAGS if you use
+  Bison extensions.
+
+  Traditional Yacc generates 'y.tab.c' whatever the name of the input file.
+  Therefore Makefiles written for Yacc expect 'y.tab.c' (and possibly
+  'y.tab.h' and 'y.outout') to be generated from 'foo.y'.
+
+  To this end, for ages, AC_PROG_YACC, Autoconf's macro to look for an
+  implementation of Yacc, was using Bison as 'bison -y'.  While it does
+  ensure compatible output file names, it also enables warnings for
+  incompatibilities with POSIX Yacc.  In other words, 'bison -y' triggers
+  warnings for Bison extensions.
+
+  Autoconf 2.70+ fixes this incompatibility by using YACC='bison -o y.tab.c'
+  (which also generates 'y.tab.h' and 'y.output' when needed).
+  Alternatively, disable Yacc warnings by passing '-Wno-yacc' to your Yacc
+  flags (YFLAGS, or AM_YFLAGS with Automake).
+
 ** Bug fixes
 
-*** The epilogue is no longer affected by internal #defines
+*** The epilogue is no longer affected by internal #defines (glr.c)
 
   The glr.c skeleton uses defines such as #define yylval (yystackp->yyval) in
   generated code.  These weren't properly undefined before the inclusion of
@@ -39,13 +57,15 @@ GNU Bison NEWS
 
     int yylex (YYSTYPE *yylval);
 
-  This is has been fixed: yylval, yynerrs, yychar, and yylloc are now valid
+  This is fixed: yylval, yynerrs, yychar, and yylloc are now valid
   identifiers for user-provided variables.
 
 *** stdio.h is no longer needed when locations are enabled (yacc.c)
 
   Changes in Bison 2.7 introduced a dependency on FILE and fprintf when
   locations are enabled.  This is fixed.
+
+*** Warnings about useless %pure-parser/%define api.pure are restored
 
 ** Diagnostics reported by Bison
 
@@ -57,6 +77,29 @@ GNU Bison NEWS
   Version 2.7 introduced caret errors, for a prettier output.  These are now
   activated by default.  The old format can still be used by invoking Bison
   with -fno-caret (or -fnone).
+
+  Some error messages that reproduced excerpts of the grammar are now using
+  the caret information only.  For instance on:
+
+    %%
+    exp: 'a' | 'a';
+
+  Bison 2.7 reports:
+
+    in.y: warning: 1 reduce/reduce conflict [-Wconflicts-rr]
+    in.y:2.12-14: warning: rule useless in parser due to conflicts: exp: 'a' [-Wother]
+
+  Now bison reports:
+
+    in.y: warning: 1 reduce/reduce conflict [-Wconflicts-rr]
+    in.y:2.12-14: warning: rule useless in parser due to conflicts [-Wother]
+     exp: 'a' | 'a';
+                ^^^
+
+  and "bison -fno-caret" reports:
+
+    in.y: warning: 1 reduce/reduce conflict [-Wconflicts-rr]
+    in.y:2.12-14: warning: rule useless in parser due to conflicts [-Wother]
 
 *** Enhancements of the -Werror option
 
@@ -198,6 +241,11 @@ GNU Bison NEWS
     bar.y: error: shift/reduce conflicts: 1 found, 0 expected
     bar.y: error: reduce/reduce conflicts: 2 found, 0 expected
 
+** Incompatibilities with POSIX Yacc
+
+  The 'yacc' category is no longer part of '-Wall', enable it explicitly
+  with '-Wyacc'.
+
 ** Additional yylex/yyparse arguments
 
   The new directive %param declares additional arguments to both yylex and
@@ -213,37 +261,117 @@ GNU Bison NEWS
 
     %param {arg1_type *arg1} {arg2_type *arg2}
 
-** Java skeleton improvements
+** Types of values for %define variables
 
-  Contributed by Paolo Bonzini.
+  Bison used to make no difference between '%define foo bar' and '%define
+  foo "bar"'.  The former is now called a 'keyword value', and the latter a
+  'string value'.  A third kind was added: 'code values', such as '%define
+  foo {bar}'.
 
-  The constants for token names were moved to the Lexer interface.  Also, it
-  is possible to add code to the parser's constructors using "%code init"
-  and "%define init_throws".
+  Keyword variables are used for fixed value sets, e.g.,
 
-  Contributed by Dennis Heimbigner
-  The java skeleton, data/lalr1.java, now supports push parsing.
+    %define lr.type lalr
 
-** C++ skeletons improvements
+  Code variables are used for value in the target language, e.g.,
 
-*** The parser header is no longer mandatory (lalr1.cc, glr.cc)
+    %define api.value.type {struct semantic_type}
 
-  Using %defines is now optional.  Without it, the needed support classes
-  are defined in the generated parser, instead of additional files (such as
-  location.hh, position.hh and stack.hh).
+  String variables are used remaining cases, e.g. file names.
 
-*** Locations are no longer mandatory (lalr1.cc, glr.cc)
+** Variable api.token.prefix
 
-  Both lalr1.cc and glr.cc no longer require %location.
+  The variable api.token.prefix changes the way tokens are identified in
+  the generated files.  This is especially useful to avoid collisions
+  with identifiers in the target language.  For instance
 
-*** syntax_error exception (lalr1.cc)
+    %token FILE for ERROR
+    %define api.token.prefix {TOK_}
+    %%
+    start: FILE for ERROR;
 
-  The C++ parser features a syntax_error exception, which can be
-  thrown from the scanner or from user rules to raise syntax errors.
-  This facilitates reporting errors caught in sub-functions (e.g.,
-  rejecting too large integral literals from a conversion function
-  used by the scanner, or rejecting invalid combinations from a
-  factory invoked by the user actions).
+  will generate the definition of the symbols TOK_FILE, TOK_for, and
+  TOK_ERROR in the generated sources.  In particular, the scanner must
+  use these prefixed token names, although the grammar itself still
+  uses the short names (as in the sample rule given above).
+
+** Variable api.value.type
+
+  This new %define variable supersedes the #define macro YYSTYPE.  The use
+  of YYSTYPE is discouraged.  In particular, #defining YYSTYPE *and* either
+  using %union or %defining api.value.type results in undefined behavior.
+
+  Either define api.value.type, or use "%union":
+
+    %union
+    {
+      int ival;
+      char *sval;
+    }
+    %token <ival> INT "integer"
+    %token <sval> STRING "string"
+    %printer { fprintf (yyo, "%d", $$); } <ival>
+    %destructor { free ($$); } <sval>
+
+    /* In yylex().  */
+    yylval.ival = 42; return INT;
+    yylval.sval = "42"; return STRING;
+
+  The %define variable api.value.type supports both keyword and code values.
+
+  The keyword value 'union' means that the user provides genuine types, not
+  union member names such as "ival" and "sval" above (WARNING: will fail if
+  -y/--yacc/%yacc is enabled).
+
+    %define api.value.type union
+    %token <int> INT "integer"
+    %token <char *> STRING "string"
+    %printer { fprintf (yyo, "%d", $$); } <int>
+    %destructor { free ($$); } <char *>
+
+    /* In yylex().  */
+    yylval.INT = 42; return INT;
+    yylval.STRING = "42"; return STRING;
+
+  The keyword value variant is somewhat equivalent, but for C++ special
+  provision is made to allow classes to be used (more about this below).
+
+    %define api.value.type variant
+    %token <int> INT "integer"
+    %token <std::string> STRING "string"
+
+  Code values (in braces) denote user defined types.  This is where YYSTYPE
+  used to be used.
+
+    %code requires
+    {
+      struct my_value
+      {
+        enum
+        {
+          is_int, is_string
+        } kind;
+        union
+        {
+          int ival;
+          char *sval;
+        } u;
+      };
+    }
+    %define api.value.type {struct my_value}
+    %token <u.ival> INT "integer"
+    %token <u.sval> STRING "string"
+    %printer { fprintf (yyo, "%d", $$); } <u.ival>
+    %destructor { free ($$); } <u.sval>
+
+    /* In yylex().  */
+    yylval.u.ival = 42; return INT;
+    yylval.u.sval = "42"; return STRING;
+
+** Variable parse.error
+
+  This variable controls the verbosity of error messages.  The use of the
+  %error-verbose directive is deprecated in favor of "%define parse.error
+  verbose".
 
 ** Renamed %define variables
 
@@ -254,28 +382,6 @@ GNU Bison NEWS
     lr.keep-unreachable-states -> lr.keep-unreachable-state
     namespace                  -> api.namespace
     stype                      -> api.value.type
-
-** Variable api.token.prefix
-
-  The variable api.token.prefix changes the way tokens are identified in
-  the generated files.  This is especially useful to avoid collisions
-  with identifiers in the target language.  For instance
-
-    %token FILE for ERROR
-    %define api.token.prefix "TOK_"
-    %%
-    start: FILE for ERROR;
-
-  will generate the definition of the symbols TOK_FILE, TOK_for, and
-  TOK_ERROR in the generated sources.  In particular, the scanner must
-  use these prefixed token names, although the grammar itself still
-  uses the short names (as in the sample rule given above).
-
-** Variable parse.error
-
-  This variable controls the verbosity of error messages.  The use of the
-  %error-verbose directive is deprecated in favor of "%define parse.error
-  verbose".
 
 ** Semantic predicates
 
@@ -293,17 +399,33 @@ GNU Bison NEWS
   It used to be an error only if used in non GLR mode, _and_ if there are
   reduce/reduce conflicts.
 
-** Token numbering has changed to preserve the user-defined order
+** Tokens are numbered in their order of appearance
 
-  When declaring %token A B, the numbering for A is inferior to B. Up to now,
-  when declaring associativity at the same time, with %left (or %right,
-  %precedence, %nonassoc), B was inferior to A.
+  Contributed by Valentin Tolmer.
+
+  With '%token A B', A had a number less than the one of B.  However,
+  precedence declarations used to generate a reversed order.  This is now
+  fixed, and introducing tokens with any of %token, %left, %right,
+  %precedence, or %nonassoc yields the same result.
+
+  When mixing declarations of tokens with a litteral character (e.g., 'a')
+  or with an identifier (e.g., B) in a precedence declaration, Bison
+  numbered the litteral characters first.  For example
+
+    %right A B 'c' 'd'
+
+  would lead to the tokens declared in this order: 'c' 'd' A B.  Again, the
+  input order is now preserved.
+
+  These changes were made so that one can remove useless precedence and
+  associativity declarations (i.e., map %nonassoc, %left or %right to
+  %precedence, or to %token) and get exactly the same output.
 
 ** Useless precedence and associativity
 
   Contributed by Valentin Tolmer.
 
-  When developping and maintaining a grammar, useless associativity and
+  When developing and maintaining a grammar, useless associativity and
   precedence directives are common.  They can be a nuisance: new ambiguities
   arising are sometimes masked because their conflicts are resolved due to
   the extra precedence or associativity information.  Furthermore, it can
@@ -328,8 +450,8 @@ GNU Bison NEWS
     %left '*'
     %%
     exp:
-      "num"
-    | exp '+' "num"
+      "number"
+    | exp '+' "number"
     | exp '*' exp
     ;
 
@@ -348,7 +470,7 @@ GNU Bison NEWS
 
     %precedence '='
     %%
-    exp: "var" '=' "num";
+    exp: "var" '=' "number";
 
   will produce a
 
@@ -363,13 +485,129 @@ GNU Bison NEWS
 
     %nonassoc '='
     %%
-    exp: "var" '=' "num";
+    exp: "var" '=' "number";
 
   The warning is:
 
     warning: useless precedence and associativity for '=' [-Wprecedence]
      %nonassoc '='
                ^^^
+
+** Empty rules
+
+  With help from Joel E. Denny and Gabriel Rassoul.
+
+  Empty rules (i.e., with an empty right-hand side) can now be explicitly
+  marked by the new %empty directive.  Using %empty on a non-empty rule is
+  an error.  The new -Wempty-rule warning reports empty rules without
+  %empty.  On the following grammar:
+
+    %%
+    s: a b c;
+    a: ;
+    b: %empty;
+    c: 'a' %empty;
+
+  bison reports:
+
+    3.4-5: warning: empty rule without %empty [-Wempty-rule]
+     a: {}
+        ^^
+    5.8-13: error: %empty on non-empty rule
+     c: 'a' %empty {};
+            ^^^^^^
+
+** Java skeleton improvements
+
+  The constants for token names were moved to the Lexer interface.  Also, it
+  is possible to add code to the parser's constructors using "%code init"
+  and "%define init_throws".
+  Contributed by Paolo Bonzini.
+
+  The java skeleton, data/lalr1.java, now supports push parsing.
+  Contributed by Dennis Heimbigner.
+
+** C++ skeletons improvements
+
+*** The parser header is no longer mandatory (lalr1.cc, glr.cc)
+
+  Using %defines is now optional.  Without it, the needed support classes
+  are defined in the generated parser, instead of additional files (such as
+  location.hh, position.hh and stack.hh).
+
+*** Locations are no longer mandatory (lalr1.cc, glr.cc)
+
+  Both lalr1.cc and glr.cc no longer require %location.
+
+*** syntax_error exception (lalr1.cc)
+
+  The C++ parser features a syntax_error exception, which can be
+  thrown from the scanner or from user rules to raise syntax errors.
+  This facilitates reporting errors caught in sub-functions (e.g.,
+  rejecting too large integral literals from a conversion function
+  used by the scanner, or rejecting invalid combinations from a
+  factory invoked by the user actions).
+
+*** %define api.value.type variant
+
+  This is based on a submission from Michiel De Wilde.  With help
+  from Théophile Ranquet.
+
+  In this mode, complex C++ objects can be used as semantic values.  For
+  instance:
+
+    %token <::std::string> TEXT;
+    %token <int> NUMBER;
+    %token SEMICOLON ";"
+    %type <::std::string> item;
+    %type <::std::list<std::string>> list;
+    %%
+    result:
+      list  { std::cout << $1 << std::endl; }
+    ;
+
+    list:
+      %empty        { /* Generates an empty string list. */ }
+    | list item ";" { std::swap ($$, $1); $$.push_back ($2); }
+    ;
+
+    item:
+      TEXT    { std::swap ($$, $1); }
+    | NUMBER  { $$ = string_cast ($1); }
+    ;
+
+*** %define api.token.constructor
+
+  When variants are enabled, Bison can generate functions to build the
+  tokens.  This guarantees that the token type (e.g., NUMBER) is consistent
+  with the semantic value (e.g., int):
+
+    parser::symbol_type yylex ()
+    {
+      parser::location_type loc = ...;
+      ...
+      return parser::make_TEXT ("Hello, world!", loc);
+      ...
+      return parser::make_NUMBER (42, loc);
+      ...
+      return parser::make_SEMICOLON (loc);
+      ...
+    }
+
+*** C++ locations
+
+  There are operator- and operator-= for 'location'.  Negative line/column
+  increments can no longer underflow the resulting value.
+
+* Noteworthy changes in release 2.7.1 (2013-04-15) [stable]
+
+** Bug fixes
+
+*** Fix compiler attribute portability (yacc.c)
+
+  With locations enabled, __attribute__ was used unprotected.
+
+*** Fix some compiler warnings (lalr1.cc)
 
 * Noteworthy changes in release 2.7 (2012-12-12) [stable]
 
@@ -421,8 +659,8 @@ GNU Bison NEWS
      exp: exp '+' exp { $exp = $1 + $3; };
                   ^^^
 
-  The default behaviour for now is still not to display these unless
-  explictly asked with -fcaret (or -fall). However, in a later release, it
+  The default behavior for now is still not to display these unless
+  explicitly asked with -fcaret (or -fall). However, in a later release, it
   will be made the default behavior (but may still be deactivated with
   -fno-caret).
 
@@ -509,7 +747,7 @@ GNU Bison NEWS
 
   Other issues in the test suite have been addressed.
 
-  Nul characters are correctly displayed in error messages.
+  Null characters are correctly displayed in error messages.
 
   When possible, yylloc is correctly initialized before calling yylex.  It
   is no longer necessary to initialize it in the %initial-action.
@@ -2425,7 +2663,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
  LocalWords:  Automake TMPDIR LESSEQ ylwrap endif yydebug YYTOKEN YYLSP ival hh
  LocalWords:  extern YYTOKENTYPE TOKENTYPE yytokentype tokentype STYPE lval pdf
  LocalWords:  lang yyoutput dvi html ps POSIX lvalp llocp Wother nterm arg init
- LocalWords:  TOK calc yyo fval Wconflicts
+ LocalWords:  TOK calc yyo fval Wconflicts parsers yystackp yyval yynerrs
+ LocalWords:  Théophile Ranquet Santet fno fnone stype associativity Tolmer
+ LocalWords:  Wprecedence Rassoul Wempty Paolo Bonzini parser's Michiel loc
+ LocalWords:  redeclaration sval fcaret reentrant XSLT xsl Wmaybe yyvsp Tedi
+ LocalWords:  pragmas noreturn untyped Rozenman unexpanded Wojciech Polak
+ LocalWords:  Alexandre MERCHANTABILITY yytype
 
 Local Variables:
 mode: outline

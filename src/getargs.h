@@ -121,6 +121,7 @@ enum feature
 /** What additional features to use.  */
 extern int feature_flag;
 
+
 /** Process the command line arguments.
  *
  *  \param argc   size of \a argv

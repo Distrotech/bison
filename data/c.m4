@@ -150,7 +150,7 @@ m4_popdef([$1])dnl
 
 # b4_parse_param_use([VAL], [LOC])
 # --------------------------------
-# `YYUSE' VAL, LOC if locations are enabled, and all the parse-params.
+# 'YYUSE' VAL, LOC if locations are enabled, and all the parse-params.
 m4_define([b4_parse_param_use],
 [m4_ifvaln([$1], [  YYUSE ([$1]);])dnl
 b4_locations_if([m4_ifvaln([$2], [  YYUSE ([$2]);])])dnl
@@ -182,7 +182,7 @@ m4_define([b4_int_type],
 # b4_int_type_for(NAME)
 # ---------------------
 # Return the smallest int type able to handle numbers ranging from
-# `NAME_min' to `NAME_max' (included).
+# 'NAME_min' to 'NAME_max' (included).
 m4_define([b4_int_type_for],
 [b4_int_type($1_min, $1_max)])
 
@@ -197,6 +197,31 @@ m4_define([b4_table_value_equals],
                || m4_indir([b4_]$1[_max]) < $3), [1],
        [[0]],
        [(!!(($2) == ($3)))])])
+
+
+## ----------------- ##
+## Compiler issues.  ##
+## ----------------- ##
+
+# b4_attribute_define
+# -------------------
+# Provide portability for __attribute__.
+m4_define([b4_attribute_define],
+[#ifndef __attribute__
+/* This feature is available in gcc versions 2.5 and later.  */
+# if (! defined __GNUC__ || __GNUC__ < 2 \
+      || (__GNUC__ == 2 && __GNUC_MINOR__ < 5))
+#  define __attribute__(Spec) /* empty */
+# endif
+#endif
+
+/* Suppress unused-variable warnings by "using" E.  */
+#if ! defined lint || defined __GNUC__
+# define YYUSE(E) ((void) (E))
+#else
+# define YYUSE(E) /* empty */
+#endif
+])
 
 
 ## ---------##
@@ -421,12 +446,7 @@ m4_ifset([b4_parse_param], [, b4_parse_param]))[
     yymsg = "Deleting";
   YY_SYMBOL_PRINT (yymsg, yytype, yyvaluep, yylocationp);
 
-  switch (yytype)
-    {
-]b4_symbol_foreach([b4_symbol_destructor])dnl
-[      default:
-        break;
-    }
+  ]b4_symbol_actions([destructor])[
 }]dnl
 ])
 
@@ -459,12 +479,7 @@ m4_if(b4_skeleton, ["yacc.c"],
     YYPRINT (yyoutput, yytoknum[yytype], *yyvaluep);
 # endif
 ]])dnl
-[  switch (yytype)
-    {
-]b4_symbol_foreach([b4_symbol_printer])dnl
-[      default:
-        break;
-    }
+  b4_symbol_actions([printer])[
 }
 
 
@@ -492,28 +507,154 @@ b4_locations_if([, yylocationp])[]b4_user_args[);
 }]dnl
 ])
 
+
+## ---------------- ##
+## api.value.type.  ##
+## ---------------- ##
+
+
+# ---------------------- #
+# api.value.type=union.  #
+# ---------------------- #
+
+# b4_symbol_type_register(SYMBOL-NUM)
+# -----------------------------------
+# Symbol SYMBOL-NUM has a type (for variant) instead of a type-tag.
+# Extend the definition of %union's body with a field of that type,
+# and extend the symbol's "type" field to point to the field name,
+# instead of the type name.
+m4_define([b4_symbol_type_register],
+[m4_define([b4_symbol($1, type_tag)],
+           [b4_symbol_if([$1], [has_id],
+                         [b4_symbol([$1], [id])],
+                         [yytype_[]b4_symbol([$1], [number])])])dnl
+m4_append([b4_user_union_members],
+m4_expand([
+  b4_symbol_tag_comment([$1])dnl
+  b4_symbol([$1], [type]) b4_symbol([$1], [type_tag]);]))
+])
+
+
+# b4_type_define_tag(SYMBOL1-NUM, ...)
+# ------------------------------------
+# For the batch of symbols SYMBOL1-NUM... (which all have the same
+# type), enhance the %union definition for each of them, and set
+# there "type" field to the field tag name, instead of the type name.
+m4_define([b4_type_define_tag],
+[b4_symbol_if([$1], [has_type],
+              [m4_map([b4_symbol_type_register], [$@])])
+])
+
+
+# b4_symbol_value_union(VAL, [TYPE])
+# ----------------------------------
+# Same of b4_symbol_value, but when api.value.type=union.
+m4_define([b4_symbol_value_union],
+[m4_ifval([$2],
+          [(*($2*)(&$1))],
+          [$1])])
+])
+
+
+# b4_value_type_setup_union
+# -------------------------
+# Setup support for api.value.type=union.  Symbols are defined with a
+# type instead of a union member name: build the corresponding union,
+# and give the symbols their tag.
+m4_define([b4_value_type_setup_union],
+[m4_define([b4_union_members])
+b4_type_foreach([b4_type_define_tag])
+m4_copy_force([b4_symbol_value_union], [b4_symbol_value])
+])
+
+
+# ---------------- #
+# api.value.type.  #
+# ---------------- #
+
+
+# b4_value_type_setup_variant
+# ---------------------------
+# Setup support for api.value.type=variant.  By default, fail, specialized
+# by other skeletons.
+m4_define([b4_value_type_setup_variant],
+[b4_complain_at(b4_percent_define_get_loc([[api.value.type]]),
+                [['%s' does not support '%s']],
+                [b4_skeleton],
+                [%define api.value.type variant])])
+
+
+# _b4_value_type_setup_keyword
+# ----------------------------
+# api.value.type is defined with a keyword/string syntax.  Check if
+# that is properly defined, and prepare its use.
+m4_define([_b4_value_type_setup_keyword],
+[b4_percent_define_check_values([[[[api.value.type]],
+                                  [[none]],
+                                  [[union]],
+                                  [[union-directive]],
+                                  [[variant]],
+                                  [[yystype]]]])dnl
+m4_case(b4_percent_define_get([[api.value.type]]),
+        [union],   [b4_value_type_setup_union],
+        [variant], [b4_value_type_setup_variant])])
+
+
+# b4_value_type_setup
+# -------------------
+# Check if api.value.type is properly defined, and possibly prepare
+# its use.
+b4_define_silent([b4_value_type_setup],
+[# Define default value.
+b4_percent_define_ifdef([[api.value.type]], [],
+[# %union => api.value.type=union-directive
+m4_ifdef([b4_union_members],
+[m4_define([b4_percent_define_kind(api.value.type)], [keyword])
+m4_define([b4_percent_define(api.value.type)], [union-directive])],
+[# no tag seen => api.value.type={int}
+m4_if(b4_tag_seen_flag, 0,
+[m4_define([b4_percent_define_kind(api.value.type)], [code])
+m4_define([b4_percent_define(api.value.type)], [int])],
+[# otherwise api.value.type=yystype
+m4_define([b4_percent_define_kind(api.value.type)], [keyword])
+m4_define([b4_percent_define(api.value.type)], [yystype])])])])
+
+# Set up.
+m4_bmatch(b4_percent_define_get_kind([[api.value.type]]),
+   [keyword\|string], [_b4_value_type_setup_keyword])
+])
+
+
 ## -------------- ##
 ## Declarations.  ##
 ## -------------- ##
 
+
 # b4_value_type_define
 # --------------------
 m4_define([b4_value_type_define],
-[[/* Value type.  */
-#if ! defined ]b4_api_PREFIX[STYPE && ! defined ]b4_api_PREFIX[STYPE_IS_DECLARED
-]m4_ifdef([b4_union_members],
-[[typedef union ]b4_union_name[ ]b4_api_PREFIX[STYPE;
+[b4_value_type_setup[]dnl
+/* Value type.  */
+m4_bmatch(b4_percent_define_get_kind([[api.value.type]]),
+[code],
+[[#if ! defined ]b4_api_PREFIX[STYPE && ! defined ]b4_api_PREFIX[STYPE_IS_DECLARED
+typedef ]b4_percent_define_get([[api.value.type]])[ ]b4_api_PREFIX[STYPE;
+# define ]b4_api_PREFIX[STYPE_IS_TRIVIAL 1
+# define ]b4_api_PREFIX[STYPE_IS_DECLARED 1
+#endif
+]],
+[m4_bmatch(b4_percent_define_get([[api.value.type]]),
+[union\|union-directive],
+[[#if ! defined ]b4_api_PREFIX[STYPE && ! defined ]b4_api_PREFIX[STYPE_IS_DECLARED
+typedef union ]b4_union_name[ ]b4_api_PREFIX[STYPE;
 union ]b4_union_name[
 {
 ]b4_user_union_members[
 };
-# define ]b4_api_PREFIX[STYPE_IS_TRIVIAL 1]],
-[m4_if(b4_tag_seen_flag, 0,
-[[typedef int ]b4_api_PREFIX[STYPE;
-# define ]b4_api_PREFIX[STYPE_IS_TRIVIAL 1]])])[
+# define ]b4_api_PREFIX[STYPE_IS_TRIVIAL 1
 # define ]b4_api_PREFIX[STYPE_IS_DECLARED 1
 #endif
-]])
+]])])])
 
 
 # b4_location_type_define
@@ -549,7 +690,7 @@ b4_pure_if([], [[extern ]b4_api_PREFIX[STYPE ]b4_prefix[lval;
 
 
 # b4_YYDEBUG_define
-# ------------------
+# -----------------
 m4_define([b4_YYDEBUG_define],
 [[/* Debug traces.  */
 ]m4_if(b4_api_prefix, [yy],

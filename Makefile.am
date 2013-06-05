@@ -32,8 +32,8 @@ EXTRA_DIST = .prev-version .version \
 ## version of Bison nearby...
 BISON = $(top_builddir)/tests/bison
 BISON_IN = $(top_srcdir)/tests/bison.in
-YACC = $(BISON) -y
-AM_YFLAGS = -d -v --warnings=all,error --report=all
+YACC = $(BISON) -o y.tab.c
+AM_YFLAGS = -d -v -Werror -Wall -Wno-yacc --report=all
 
 # Initialization before completion by local.mk's.
 AM_CFLAGS = $(WARN_CFLAGS)
@@ -78,11 +78,11 @@ dist-hook: gen-ChangeLog
 
 .PHONY: update-b4-copyright update-package-copyright-year
 update-b4-copyright:
-	find $(srcdir)/data -type f          \
+	$(AM_V_GEN)find $(srcdir)/data -type f          \
 	  | xargs $(srcdir)/build-aux/$@
 	@echo 'warning: src/parse-gram.[hc] may need to be regenerated.'
 update-package-copyright-year:
-	$(srcdir)/build-aux/$@ $(srcdir)/configure.ac
+	$(AM_V_GEN)$(srcdir)/build-aux/$@ $(srcdir)/configure.ac
 
 gen_start_date = 2012-01-16
 .PHONY: gen-ChangeLog

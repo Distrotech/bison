@@ -85,6 +85,20 @@ m4_changecom([#])
 ])
 
 
+# b4_divert_kill(CODE)
+# --------------------
+# Expand CODE for its side effects, discard its output.
+m4_define([b4_divert_kill],
+[m4_divert_text([KILL], [$1])])
+
+
+# b4_define_silent(MACRO, CODE)
+# -----------------------------
+# Same as m4_define, but throw away the expansion of CODE.
+m4_define([b4_define_silent],
+[m4_define([$1], [b4_divert_kill([$2])])])
+
+
 ## ---------------- ##
 ## Error handling.  ##
 ## ---------------- ##
@@ -313,7 +327,7 @@ m4_define([b4_define_flag_if],
 # _b4_define_flag_if($1, $2, FLAG)
 # --------------------------------
 # Work around the impossibility to define macros inside macros,
-# because issuing `[$1]' is not possible in M4.  GNU M4 should provide
+# because issuing '[$1]' is not possible in M4.  GNU M4 should provide
 # $$1 a la M5/TeX.
 m4_define([_b4_define_flag_if],
 [m4_if([$1$2], $[1]$[2], [],
@@ -347,6 +361,7 @@ b4_define_flag_if([yacc])               # Whether POSIX Yacc is emulated.
 #   Whether the symbol has an id.
 # - id: string
 #   If has_id, the id.  Guaranteed to be usable as a C identifier.
+#   Prefixed by api.token.prefix if defined.
 # - tag: string.
 #   A representat of the symbol.  Can be 'foo', 'foo.id', '"foo"' etc.
 # - user_number: integer
@@ -357,9 +372,13 @@ b4_define_flag_if([yacc])               # Whether POSIX Yacc is emulated.
 #   The internalized number (used after yytranslate).
 # - has_type: 0, 1
 #   Whether has a semantic value.
+# - type_tag: string
+#   When api.value.type=union, the generated name for the union member.
+#   yytype_INT etc. for symbols that has_id, otherwise yytype_1 etc.
 # - type
 #   If it has a semantic value, its type tag, or, if variant are used,
 #   its type.
+#   In the case of api.value.type=union, type is the real type (e.g. int).
 # - has_printer: 0, 1
 # - printer: string
 # - printer_file: string
@@ -441,6 +460,24 @@ b4_dollar_popdef[]dnl
 m4_define([b4_symbol_destructor], [b4_symbol_action([$1], [destructor])])
 m4_define([b4_symbol_printer],    [b4_symbol_action([$1], [printer])])
 
+
+# b4_symbol_actions(KIND, [TYPE = yytype])
+# ----------------------------------------
+# Emit the symbol actions for KIND ("printer" or "destructor").
+# Dispatch on TYPE.
+m4_define([b4_symbol_actions],
+[m4_pushdef([b4_actions_], m4_expand([b4_symbol_foreach([b4_symbol_$1])]))dnl
+m4_ifval(m4_defn([b4_actions_]),
+[switch (m4_default([$2], [yytype]))
+    {
+      m4_defn([b4_actions_])
+      default:
+        break;
+    }dnl
+],
+[YYUSE (m4_default([$2], [yytype]));])dnl
+m4_popdef([b4_actions_])dnl
+])
 
 # b4_symbol_case_(SYMBOL-NUM)
 # ---------------------------
@@ -665,9 +702,9 @@ m4_define([b4_percent_define_use],
 #   b4_percent_define_get([[foo]])
 m4_define([b4_percent_define_get],
 [b4_percent_define_use([$1])dnl
-m4_ifdef([b4_percent_define(]$1[)],
-         [m4_indir([b4_percent_define(]$1[)])],
-         [$2])])
+b4_percent_define_ifdef_([$1],
+                         [m4_indir([b4_percent_define(]$1[)])],
+                         [$2])])
 
 # b4_percent_define_get_loc(VARIABLE)
 # -----------------------------------
@@ -686,7 +723,21 @@ m4_define([b4_percent_define_get_loc],
           [m4_pushdef([b4_loc], m4_indir([b4_percent_define_loc(]$1[)]))dnl
 b4_loc[]dnl
 m4_popdef([b4_loc])],
-          [b4_fatal([[b4_percent_define_get_loc: undefined %%define variable '%s']], [$1])])])
+          [b4_fatal([[$0: undefined %%define variable '%s']], [$1])])])
+
+# b4_percent_define_get_kind(VARIABLE)
+# ------------------------------------
+# Get the kind (code, keyword, string) of VARIABLE, i.e., how its
+# value was defined (braces, not delimiters, quotes).
+#
+# If the %define variable VARIABLE is undefined, complain fatally
+# since that's a Bison or skeleton error.  Don't record this as a
+# Bison usage of VARIABLE as there's no reason to suspect that the
+# user-supplied value has yet influenced the output.
+m4_define([b4_percent_define_get_kind],
+[m4_ifdef([b4_percent_define_kind(]$1[)],
+          [m4_indir([b4_percent_define_kind(]$1[)])],
+          [b4_fatal([[$0: undefined %%define variable '%s']], [$1])])])
 
 # b4_percent_define_get_syncline(VARIABLE)
 # ----------------------------------------
@@ -703,7 +754,20 @@ m4_popdef([b4_loc])],
 m4_define([b4_percent_define_get_syncline],
 [m4_ifdef([b4_percent_define_syncline(]$1[)],
           [m4_indir([b4_percent_define_syncline(]$1[)])],
-          [b4_fatal([[b4_percent_define_get_syncline: undefined %%define variable '%s']], [$1])])])
+          [b4_fatal([[$0: undefined %%define variable '%s']], [$1])])])
+
+# b4_percent_define_ifdef_(VARIABLE, IF-TRUE, [IF-FALSE])
+# ------------------------------------------------------
+# If the %define variable VARIABLE is defined, expand IF-TRUE, else expand
+# IF-FALSE.  Don't record usage of VARIABLE.
+#
+# For example:
+#
+#   b4_percent_define_ifdef_([[foo]], [[it's defined]], [[it's undefined]])
+m4_define([b4_percent_define_ifdef_],
+[m4_ifdef([b4_percent_define(]$1[)],
+          [$2],
+          [$3])])
 
 # b4_percent_define_ifdef(VARIABLE, IF-TRUE, [IF-FALSE])
 # ------------------------------------------------------
@@ -716,9 +780,9 @@ m4_define([b4_percent_define_get_syncline],
 #
 #   b4_percent_define_ifdef([[foo]], [[it's defined]], [[it's undefined]])
 m4_define([b4_percent_define_ifdef],
-[m4_ifdef([b4_percent_define(]$1[)],
-          [b4_percent_define_use([$1])$2],
-          [$3])])
+[b4_percent_define_ifdef_([$1],
+                         [b4_percent_define_use([$1])$2],
+                         [$3])])
 
 
 ## --------- ##
@@ -747,11 +811,11 @@ m4_define([b4_percent_define_flag_if],
                                            [[invalid value for %%define Boolean variable '%s']],
                                            [$1])],
                            [[b4_percent_define_flag_if($1)]])])],
-  [b4_fatal([[b4_percent_define_flag_if: undefined %%define variable '%s']], [$1])])])
+  [b4_fatal([[$0: undefined %%define variable '%s']], [$1])])])
 
 
-# b4_percent_define_default(VARIABLE, DEFAULT)
-# --------------------------------------------
+# b4_percent_define_default(VARIABLE, DEFAULT, [KIND = keyword])
+# --------------------------------------------------------------
 # Mimic muscle_percent_define_default in ../src/muscle-tab.h exactly.  That is,
 # if the %define variable VARIABLE is undefined, set its value to DEFAULT.
 # Don't record this as a Bison usage of VARIABLE as there's no reason to
@@ -761,8 +825,10 @@ m4_define([b4_percent_define_flag_if],
 #
 #   b4_percent_define_default([[foo]], [[default value]])
 m4_define([b4_percent_define_default],
-[m4_ifndef([b4_percent_define(]$1[)],
+[b4_percent_define_ifdef_([$1], [],
            [m4_define([b4_percent_define(]$1[)], [$2])dnl
+            m4_define([b4_percent_define_kind(]$1[)],
+                      [m4_default([$3], [keyword])])dnl
             m4_define([b4_percent_define_loc(]$1[)],
                       [[[[<skeleton default value>:-1.-1]],
                         [[<skeleton default value>:-1.-1]]]])dnl
@@ -772,8 +838,8 @@ m4_define([b4_percent_define_default],
 # b4_percent_define_if_define(NAME, [VARIABLE = NAME])
 # ----------------------------------------------------
 # Define b4_NAME_if that executes its $1 or $2 depending whether
-# VARIABLE was %defined.  The characters `.' and `-' in VARIABLE are mapped
-# to `_'.
+# VARIABLE was %defined.  The characters '.' and `-' in VARIABLE are mapped
+# to '_'.
 m4_define([b4_percent_define_if_define_],
 [m4_define(m4_bpatsubst([b4_$1_if], [[-.]], [_]),
            [b4_percent_define_flag_if(m4_default([$2], [$1]),
@@ -781,6 +847,21 @@ m4_define([b4_percent_define_if_define_],
 m4_define([b4_percent_define_if_define],
 [b4_percent_define_default([m4_default([$2], [$1])], [[false]])
 b4_percent_define_if_define_([$1], [$2], $[1], $[2])])
+
+
+# b4_percent_define_check_kind(VARIABLE, KIND, [DIAGNOSTIC = complain])
+# ---------------------------------------------------------------------
+m4_define([b4_percent_define_check_kind],
+[b4_percent_define_ifdef_([$1],
+  [m4_if(b4_percent_define_get_kind([$1]), [$2], [],
+    [b4_error([m4_default([$3], [complain])],
+              b4_percent_define_get_loc([$1]),
+              [m4_case([$2],
+                 [code], [[%%define variable '%s' requires '{...}' values]],
+                 [keyword], [[%%define variable '%s' requires keyword values]],
+                 [string], [[%%define variable '%s' requires '"..."' values]])],
+              [$1])])])dnl
+])
 
 
 # b4_percent_define_check_values(VALUES)
@@ -804,8 +885,9 @@ m4_define([b4_percent_define_check_values],
             [_b4_percent_define_check_values(b4_sublist)])])
 
 m4_define([_b4_percent_define_check_values],
-[m4_ifdef([b4_percent_define(]$1[)],
-  [m4_pushdef([b4_good_value], [0])dnl
+[b4_percent_define_ifdef_([$1],
+  [b4_percent_define_check_kind(]$1[, [keyword], [deprecated])dnl
+   m4_pushdef([b4_good_value], [0])dnl
    m4_if($#, 1, [],
          [m4_foreach([b4_value], m4_dquote(m4_shift($@)),
                      [m4_if(m4_indir([b4_percent_define(]$1[)]), b4_value,
@@ -820,7 +902,7 @@ m4_define([_b4_percent_define_check_values],
                                      [[accepted value: '%s']],
                                      m4_dquote(b4_value))])])dnl
    m4_popdef([b4_good_value])],
-  [b4_fatal([[b4_percent_define_check_values: undefined %%define variable '%s']], [$1])])])
+  [b4_fatal([[$0: undefined %%define variable '%s']], [$1])])])
 
 # b4_percent_code_get([QUALIFIER])
 # --------------------------------
@@ -861,10 +943,6 @@ m4_define([b4_percent_code_ifdef],
 ## Common variables.  ##
 ## ------------------ ##
 
-# Default values for %define.
-# ---------------------------
-# If the api.token.prefix, it is empty.
-m4_percent_define_default([[api.token.prefix]], [[]])
 
 # b4_parse_assert_if([IF-ASSERTIONS-ARE-USED], [IF-NOT])
 # b4_parse_trace_if([IF-DEBUG-TRACES-ARE-ENABLED], [IF-NOT])
@@ -904,9 +982,11 @@ b4_error_verbose_if([m4_define([b4_token_table_flag], [1])])
 # b4_variant_if([IF-VARIANT-ARE-USED], [IF-NOT])
 # ----------------------------------------------
 b4_percent_define_if_define([variant])
-m4_case(b4_percent_define_get([[api.value.type]]),
-        [variant], [m4_define([b4_variant_flag], [[1]])],
-                   [m4_define([b4_variant_flag], [[0]])])
+m4_define([b4_variant_flag], [[0]])
+b4_percent_define_ifdef([[api.value.type]],
+   [m4_case(b4_percent_define_get_kind([[api.value.type]]), [keyword],
+            [m4_case(b4_percent_define_get([[api.value.type]]), [variant],
+                    [m4_define([b4_variant_flag], [[1]])])])])
 b4_define_flag_if([variant])
 
 
@@ -941,10 +1021,43 @@ m4_define_default([b4_parse_param], [])
 m4_define_default([b4_location_initial_column], [1])
 m4_define_default([b4_location_initial_line],   [1])
 
-# Sanity checks.
+
+## --------------- ##
+## Sanity checks.  ##
+## --------------- ##
+
+# api.location.prefix={...} (Java and C++).
+b4_percent_define_check_kind([api.location.type], [code], [deprecated])
+
+# api.position.prefix={...} (Java).
+b4_percent_define_check_kind([api.position.type], [code], [deprecated])
+
+# api.prefix >< %name-prefix.
+b4_percent_define_check_kind([api.prefix], [code], [deprecated])
 b4_percent_define_ifdef([api.prefix],
 [m4_ifdef([b4_prefix],
 [b4_complain_at(b4_percent_define_get_loc([api.prefix]),
                 [['%s' and '%s' cannot be used together]],
                 [%name-prefix],
                 [%define api.prefix])])])
+
+# api.token.prefix={...}
+# Make it a warning for those who used betas of Bison 3.0.
+b4_percent_define_check_kind([api.token.prefix], [code], [deprecated])
+
+# api.value.type >< %union.
+b4_percent_define_ifdef([api.value.type],
+[m4_ifdef([b4_union_members],
+[b4_complain_at(b4_percent_define_get_loc([api.value.type]),
+                [['%s' and '%s' cannot be used together]],
+                [%union],
+                [%define api.value.type])])])
+
+# api.value.type=union >< %yacc.
+b4_percent_define_ifdef([api.value.type],
+[m4_if(b4_percent_define_get([api.value.type]), [union],
+[b4_yacc_if(dnl
+[b4_complain_at(b4_percent_define_get_loc([api.value.type]),
+                [['%s' and '%s' cannot be used together]],
+                [%yacc],
+                [%define api.value.type "union"])])])])

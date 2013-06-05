@@ -25,6 +25,12 @@ m4_include(b4_pkgdatadir/[c.m4])
 m4_define([b4_comment],
 [b4_comment_([$1], [$2// ], [$2// ])])
 
+## -------- ##
+## Checks.  ##
+## -------- ##
+
+b4_percent_define_check_kind([api.namespace], [code], [deprecated])
+b4_percent_define_check_kind([parser_class_name], [code], [deprecated])
 
 ## ---------------- ##
 ## Default values.  ##
@@ -38,6 +44,7 @@ b4_percent_define_default([[parser_class_name]], [[parser]])
 # b4_percent_define_default([[api.location.type]], [[location]])
 
 b4_percent_define_default([[filename_type]], [[std::string]])
+# Make it a warning for those who used betas of Bison 3.0.
 b4_percent_define_default([[api.namespace]], m4_defn([b4_prefix]))
 
 b4_percent_define_default([[global_tokens_and_yystype]], [[false]])
@@ -54,8 +61,8 @@ b4_percent_define_default([[define_location_comparison]],
 m4_define([b4_namespace_ref], [b4_percent_define_get([[api.namespace]])])
 
 
-# Don't permit an empty b4_namespace_ref.  Any `::parser::foo' appended to it
-# would compile as an absolute reference with `parser' in the global namespace.
+# Don't permit an empty b4_namespace_ref.  Any '::parser::foo' appended to it
+# would compile as an absolute reference with 'parser' in the global namespace.
 # b4_namespace_open would open an anonymous namespace and thus establish
 # internal linkage.  This would compile.  However, it's cryptic, and internal
 # linkage for the parser would be specified in all translation units that
@@ -112,19 +119,24 @@ m4_define([b4_token_enums],
 ## Semantic Values.  ##
 ## ----------------- ##
 
-# b4_semantic_type_declare
-# ------------------------
+
+
+# b4_value_type_declare
+# ---------------------
 # Declare semantic_type.
-m4_define([b4_semantic_type_declare],
+m4_define([b4_value_type_declare],
+[b4_value_type_setup[]dnl
 [    /// Symbol semantic values.
-m4_ifdef([b4_union_members],
-[    union semantic_type
+]m4_bmatch(b4_percent_define_get_kind([[api.value.type]]),
+[code],
+[[    typedef ]b4_percent_define_get([[api.value.type]])[ semantic_type;]],
+[m4_bmatch(b4_percent_define_get([[api.value.type]]),
+[union\|union-directive],
+[[    union semantic_type
     {
-b4_user_union_members
-    };],
-[m4_if(b4_tag_seen_flag, 0,
-[[    typedef int semantic_type;]],
-[[    typedef ]b4_api_PREFIX[STYPE semantic_type;]])])])
+    ]b4_user_union_members[
+    };]])])dnl
+])
 
 
 # b4_public_types_declare
@@ -133,7 +145,7 @@ b4_user_union_members
 # Depending on %define token_lex, may be output in the header or source file.
 m4_define([b4_public_types_declare],
 [[#ifndef ]b4_api_PREFIX[STYPE
-]b4_semantic_type_declare[
+]b4_value_type_declare[
 #else
     typedef ]b4_api_PREFIX[STYPE semantic_type;
 #endif]b4_locations_if([
@@ -520,3 +532,13 @@ m4_define([b4_yylloc_default_define],
     while (/*CONSTCOND*/ false)
 # endif
 ]])
+
+## -------- ##
+## Checks.  ##
+## -------- ##
+
+b4_token_ctor_if([b4_variant_if([],
+  [b4_fatal_at(b4_percent_define_get_loc(api.token.constructor),
+               [cannot use '%s' without '%s'],
+               [%define api.token.constructor],
+               [%define api.value.type variant]))])])

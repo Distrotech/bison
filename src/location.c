@@ -96,8 +96,6 @@ location_compute (location *loc, boundary *cur, char const *token, size_t size)
 }
 
 
-/* Output to OUT the location LOC.
-   Warning: it uses quotearg's slot 3.  */
 unsigned
 location_print (location loc, FILE *out)
 {
@@ -221,7 +219,7 @@ void
 boundary_set_from_string (boundary *bound, char *loc_str)
 {
   /* Must search in reverse since the file name field may
-   * contain `.' or `:'.  */
+   * contain '.' or ':'.  */
   char *delim = strrchr (loc_str, '.');
   aver (delim);
   *delim = '\0';

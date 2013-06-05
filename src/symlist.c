@@ -36,18 +36,20 @@ symbol_list_sym_new (symbol *sym, location loc)
   res->content_type = SYMLIST_SYMBOL;
   res->content.sym = sym;
   res->location = res->sym_loc = loc;
+  res->named_ref = NULL;
 
   res->midrule = NULL;
   res->midrule_parent_rule = NULL;
   res->midrule_parent_rhs_index = 0;
 
-  code_props_none_init (&res->action_props);
-
+  /* Members used for LHS only.  */
   res->ruleprec = NULL;
+  res->percent_empty_loc = empty_location;
+  code_props_none_init (&res->action_props);
   res->dprec = 0;
+  res->dprec_location = empty_location;
   res->merger = 0;
-
-  res->named_ref = NULL;
+  res->merger_declaration_location = empty_location;
 
   res->next = NULL;
 
@@ -85,12 +87,17 @@ symbol_list_type_new (uniqstr type_name, location loc)
 void
 symbol_list_syms_print (const symbol_list *l, FILE *f)
 {
+  char const *sep = "";
   for (/* Nothing. */; l && l->content.sym; l = l->next)
     {
+      fputs (sep, f);
+      fputs (l->content_type == SYMLIST_SYMBOL ? "symbol: "
+             : l->content_type == SYMLIST_TYPE ? "type: "
+             : "invalid content_type: ",
+             f);
       symbol_print (l->content.sym, f);
-      fprintf (f, l->action_props.is_value_used ? " used" : " unused");
-      if (l && l->content.sym)
-        fprintf (f, ", ");
+      fputs (l->action_props.is_value_used ? " used" : " unused", f);
+      sep = ", ";
     }
 }
 

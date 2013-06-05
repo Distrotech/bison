@@ -24,10 +24,41 @@
 
 # include "location.h"
 
+/* The kind of value associated to this muscle, depending on the
+   syntax of the value: keyword (no delimiter, e.g., true), string
+   (double quotes, e.g., "foo.h"), or code (braces, e.g., {int}).  */
+typedef enum
+{
+  muscle_code,
+  muscle_keyword,
+  muscle_string
+} muscle_kind;
+
+/* Conversion from string.  */
+muscle_kind muscle_kind_new (char const *k);
+
+/* Conversion to string.  */
+char const *muscle_kind_string (muscle_kind k);
+
+
+/* Create the MUSCLE_TABLE, and initialize it with default values.
+   Also set up the MUSCLE_OBSTACK.  */
 void muscle_init (void);
+
+/* Insert (KEY, VALUE).  If KEY already existed, overwrite the
+   previous value.  Otherwise create as a muscle_string type.  */
 void muscle_insert (char const *key, char const *value);
+
+/* Find the value of muscle KEY.  Unlike MUSCLE_FIND, this is always
+   reliable to determine whether KEY has a value.  */
 char const *muscle_find_const (char const *key);
+
+/* Find the value of muscle KEY.  Abort if muscle_insert was invoked
+   more recently than muscle_grow for KEY since muscle_find can't
+   return a char const *.  */
 char *muscle_find (char const *key);
+
+/* Free all the memory consumed by the muscle machinery only.  */
 void muscle_free (void);
 
 
@@ -47,14 +78,14 @@ extern struct obstack muscle_obstack;
   } while (0)
 
 # define MUSCLE_INSERT_INT(Key, Value)          \
-  MUSCLE_INSERTF(Key, "%d", Value)
+  MUSCLE_INSERTF (Key, "%d", Value)
 
 # define MUSCLE_INSERT_LONG_INT(Key, Value)     \
-  MUSCLE_INSERTF(Key, "%ld", Value)
+  MUSCLE_INSERTF (Key, "%ld", Value)
 
 /* Key -> Value, but don't apply escaping to Value. */
 # define MUSCLE_INSERT_STRING_RAW(Key, Value)   \
-  MUSCLE_INSERTF(Key, "%s", Value)
+  MUSCLE_INSERTF (Key, "%s", Value)
 
 /* Key -> Value, applying M4 escaping to Value. */
 # define MUSCLE_INSERT_STRING(Key, Value)                       \
@@ -63,23 +94,14 @@ extern struct obstack muscle_obstack;
     muscle_insert (Key, obstack_finish0 (&muscle_obstack));     \
   } while (0)
 
+/* Key -> Value, applying C escaping to Value (and then M4). */
 # define MUSCLE_INSERT_C_STRING(Key, Value)                     \
-  do {                                                          \
-    obstack_escape (&muscle_obstack,                            \
-                    quotearg_style (c_quoting_style, Value));   \
-    muscle_insert (Key, obstack_finish0 (&muscle_obstack));     \
-  } while (0)
-
-/* Append VALUE to the current value of KEY.  If KEY did not already
-   exist, create it.  Use MUSCLE_OBSTACK.  De-allocate the previously
-   associated value.  Copy VALUE and SEPARATOR.  */
-
-void muscle_grow (const char *key, const char *value, const char *separator);
+  MUSCLE_INSERT_STRING (Key, quotearg_style (c_quoting_style, Value))
 
 
 /* Append VALUE to the current value of KEY, using muscle_grow.  But
-   in addition, issue a synchronization line for the location LOC.  */
-
+   in addition, issue a synchronization line for the location LOC.
+   Be sure to append on a new line.  */
 void muscle_code_grow (const char *key, const char *value, location loc);
 
 
@@ -92,14 +114,15 @@ void muscle_pair_list_grow (const char *muscle,
 
 /* Grow KEY for the occurrence of the name USER_NAME at LOC appropriately for
    use with b4_check_user_names in ../data/bison.m4.  USER_NAME is not escaped
-   with digraphs, so it must not contain `[' or `]'.  */
+   with digraphs, so it must not contain '[' or ']'.  */
 void muscle_user_name_list_grow (char const *key, char const *user_name,
                                  location loc);
 
 /* Indicates whether a variable's value was specified with -D/--define, with
    -F/--force-define, or in the grammar file.  */
 typedef enum {
-  MUSCLE_PERCENT_DEFINE_D = 0, MUSCLE_PERCENT_DEFINE_F,
+  MUSCLE_PERCENT_DEFINE_D = 0,
+  MUSCLE_PERCENT_DEFINE_F,
   MUSCLE_PERCENT_DEFINE_GRAMMAR_FILE
 } muscle_percent_define_how;
 
@@ -113,6 +136,7 @@ typedef enum {
    this as a user occurrence of VARIABLE by invoking
    muscle_user_name_list_grow.  */
 void muscle_percent_define_insert (char const *variable, location variable_loc,
+                                   muscle_kind kind,
                                    char const *value,
                                    muscle_percent_define_how how);
 
@@ -186,6 +210,8 @@ void muscle_percent_define_check_values (char const * const *values);
 void muscle_percent_code_grow (char const *qualifier, location qualifier_loc,
                                char const *code, location code_loc);
 
+/* Output the definition of all the current muscles into a list of
+   m4_defines.  */
 void muscles_m4_output (FILE *out);
 
 #endif /* not MUSCLE_TAB_H_ */

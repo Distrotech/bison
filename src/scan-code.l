@@ -78,8 +78,9 @@ static bool untyped_var_seen;
 
 /* POSIX says that a tag must be both an id and a C union member, but
    historically almost any character is allowed in a tag.  We disallow
-   NUL and newline, as this simplifies our implementation.  */
-tag      [^\0\n>]+
+   NUL and newline, as this simplifies our implementation.  We allow
+   "->" as a means to dereference a pointer.  */
+tag      ([^\0\n>]|->)+
 
 /* Zero or more instances of backslash-newline.  Following GCC, allow
    white space between the backslash and the newline.  */
@@ -95,26 +96,6 @@ ref      -?[0-9]+|{id}|"["{id}"]"|"$"
 %%
 
 %{
-  /* Nesting level of the current code in braces.  */
-  int braces_level = 0;
-
-  /* Whether a semicolon is probably needed.
-
-     The heuristic is that a semicolon is not needed after '{', '}',
-     ';', or a C preprocessor directive, and that whitespaces and
-     comments do not affect this flag.  Note that '{' does not need a
-     semicolon because of '{}'.  A semicolon may be needed before a
-     cpp directive, but don't bother.
-
-     While it is maintained in several start-conditions (factoring
-     opportunities), it is meaningful only for SC_RULE_ACTION. */
-  bool need_semicolon = false;
-
-  /* Whether in a C preprocessor directive.  Don't use a start condition
-     for this because, at the end of strings and comments, we still need
-     to know whether we're in a directive.  */
-  bool in_cpp = false;
-
   /* This scanner is special: it is invoked only once, henceforth
      is expected to return only once.  This initialization is
      therefore done once per action to translate. */
@@ -167,32 +148,14 @@ ref      -?[0-9]+|{id}|"["{id}"]"|"$"
 
 <SC_RULE_ACTION,SC_SYMBOL_ACTION>
 {
-  "'" {
-    STRING_GROW;
-    BEGIN SC_CHARACTER;
-    need_semicolon = true;
-  }
-  "\"" {
-    STRING_GROW;
-    BEGIN SC_STRING;
-    need_semicolon = true;
-  }
-  "/"{splice}"*" {
-    STRING_GROW;
-    BEGIN SC_COMMENT;
-  }
-  "/"{splice}"/" {
-    STRING_GROW;
-    BEGIN SC_LINE_COMMENT;
-  }
+  "'"              STRING_GROW; BEGIN SC_CHARACTER;
+  "\""             STRING_GROW; BEGIN SC_STRING;
+  "/"{splice}"*"   STRING_GROW; BEGIN SC_COMMENT;
+  "/"{splice}"/"   STRING_GROW; BEGIN SC_LINE_COMMENT;
+
   [$@]  {
     complain (loc, Wother, _("stray '%s'"), yytext);
     obstack_escape (&obstack_for_string, yytext);
-    need_semicolon = true;
-  }
-  [\[\]]  {
-    obstack_escape (&obstack_for_string, yytext);
-    need_semicolon = true;
   }
 }
 
@@ -203,51 +166,13 @@ ref      -?[0-9]+|{id}|"["{id}"]"|"$"
     handle_action_dollar (self->rule, yytext, *loc);
     if (ref_tail_fields)
       obstack_sgrow (&obstack_for_string, ref_tail_fields);
-    need_semicolon = true;
   }
   "@"{ref} {
     ref_tail_fields = NULL;
     handle_action_at (self->rule, yytext, *loc);
     if (ref_tail_fields)
       obstack_sgrow (&obstack_for_string, ref_tail_fields);
-    need_semicolon = true;
   }
-
-  ";"  STRING_GROW;                 need_semicolon = false;
-  "{"  STRING_GROW; ++braces_level; need_semicolon = false;
-  "}"  {
-    bool outer_brace = --braces_level == 0;
-
-    /* As an undocumented Bison extension, append ';' before the last
-       brace in braced code, so that the user code can omit trailing
-       ';'.  But do not append ';' if emulating Yacc, since Yacc does
-       not append one.  This is deprecated since release 2.4.1.  */
-    if (outer_brace && !yacc_flag && language_prio == default_prio
-        && skeleton_prio == default_prio && need_semicolon && ! in_cpp)
-      {
-        unsigned int indent = 0;
-        complain_indent (loc, Wdeprecated, &indent,
-                         _("a ';' might be needed at the end of action code"));
-        indent += SUB_INDENT;
-        complain_indent (loc, Wdeprecated | silent | no_caret, &indent,
-                         _("future versions of Bison will not add the ';'"));
-        obstack_1grow (&obstack_for_string, ';');
-      }
-
-    STRING_GROW;
-    need_semicolon = false;
-  }
-
-  /* Preprocessing directives should only be recognized at the beginning
-     of lines, allowing whitespace including comments, but in C/C++,
-     '#' can only be the start of preprocessor directives or within
-     '#define' directives anyway, so don't bother with begin of line.  */
-  "#"       STRING_GROW; in_cpp = true;
-
-  {splice}  STRING_GROW;
-  [\n\r]    STRING_GROW; if (in_cpp) in_cpp = need_semicolon = false;
-  [ \t\f]   STRING_GROW;
-  .         STRING_GROW; need_semicolon = true;
 }
 
 <SC_SYMBOL_ACTION>
@@ -671,7 +596,8 @@ fetch_type_name (char *cp, char const **type_name,
   if (*cp == '<')
     {
       *type_name = ++cp;
-      while (*cp != '>')
+      /* Series of non-'>' or "->".  */
+      while (*cp != '>' || cp[-1] == '-')
         ++cp;
 
       /* The '>' symbol will be later replaced by '\0'. Original
