@@ -848,4 +848,3 @@ AT_CHECK([[sed -e '/^Next token.*$/p' -e d ./stderr]],[ignore],[expout],[ignore-
 AT_CHECK([[rm -f ./expout; cp -f ./output ./expout]],[ignore],[ignore-nolog],[ignore-nolog])
 AT_CHECK([[cat ./stdout]],[ignore],[expout],[ignore-nolog])
 AT_CLEANUP
-
