@@ -20,7 +20,8 @@ m4_include(b4_pkgdatadir/[java.m4])
 b4_defines_if([b4_fatal([%s: %%defines does not make sense in Java],
               [b4_skeleton])])
 
-# We don't depend on %debug in Java, but pacify warnings about non-used flags.
+# We do not depend on %debug in Java, but pacify warnings about
+# non-used flags.
 b4_parse_trace_if([0], [0])
 
 m4_define([b4_symbol_no_destructor_assert],
@@ -613,8 +614,8 @@ b4_dollar_popdef[]dnl
 
         /* Accept?  */
         if (yystate == yyfinal_)
-]b4_push_if([{label = YYACCEPT; break;}],dnl
-            [return true;])[
+          ]b4_push_if([{label = YYACCEPT; break;}],
+                      [return true;])[
 
         /* Take a decision.  First try without lookahead.  */
         yyn = yypact_[yystate];
@@ -634,14 +635,13 @@ b4_dollar_popdef[]dnl
               return YYMORE;
             yycdebug ("Reading a token: ");
             yychar = yylextoken;
-            yylval = yylexval;
-            ]b4_locations_if([yylloc = yylexloc;])[
+            yylval = yylexval;]b4_locations_if([
+            yylloc = yylexloc;])[
             push_token_consumed = false;]])[
 ]b4_push_if([],[[
             yycdebug ("Reading a token: ");
             yychar = yylexer.yylex ();
-            yylval = yylexer.getLVal ();
-            ]b4_locations_if([dnl
+            yylval = yylexer.getLVal ();]b4_locations_if([
             yylloc = new b4_location_type (yylexer.getStartPos (),
                             yylexer.getEndPos ());])[
 ]])[
@@ -752,9 +752,9 @@ b4_dollar_popdef[]dnl
         label = YYERRLAB1;
         break;
 
-      /*---------------------------------------------------.
+      /*-------------------------------------------------.
       | errorlab -- error raised explicitly by YYERROR.  |
-      `---------------------------------------------------*/
+      `-------------------------------------------------*/
       case YYERROR:
 
         ]b4_locations_if([yyerrloc = yystack.locationAt (yylen - 1);])[
@@ -786,7 +786,8 @@ b4_dollar_popdef[]dnl
                   }
               }
 
-            /* Pop the current state because it cannot handle the error token.  */
+            /* Pop the current state because it cannot handle the
+             * error token.  */
             if (yystack.height == 0)
               ]b4_push_if([{label = YYABORT; break;}],[return false;])[
 
@@ -801,7 +802,7 @@ b4_dollar_popdef[]dnl
             /* Leave the switch.  */
             break;
 
-        ]b4_locations_if([
+]b4_locations_if([
         /* Muck with the stack to setup for yylloc.  */
         yystack.push (0, null, yylloc);
         yystack.push (0, null, yyerrloc);
