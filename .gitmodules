@@ -1,6 +1,0 @@
-[submodule "gnulib"]
-	path = gnulib
-	url = git://git.savannah.gnu.org/gnulib.git
-[submodule "submodules/autoconf"]
-	path = submodules/autoconf
-	url = git://git.sv.gnu.org/autoconf.git
