@@ -532,6 +532,27 @@ symbol_make_alias (symbol *sym, symbol *str, location loc)
               _("symbol %s given more than one literal string"), sym->tag);
   else
     {
+      if (str->content->prec)
+        {
+          if (sym->content->prec)
+            {
+              complain (&loc, Werror,
+                        _("Conflicting precedence declaration for %s and its"
+                          " alias %s"), sym->tag, str->tag);
+              if (sym->content->prec_location.end.line)
+                complain (&sym->content->prec_location, Wother,
+                          _("previous declaration for %s"), sym->tag);
+              if (str->content->prec_location.end.line)
+                complain (&str->content->prec_location, Wother,
+                          _("previous declaration for %s"), str->tag);
+            }
+          else
+            {
+              sym->content->prec = str->content->prec;
+              sym->content->assoc = str->content->assoc;
+              sym->content->prec_location = str->content->prec_location;
+            }
+        }
       sym_content_free (str->content);
       str->content = sym->content;
       str->content->symbol = str;
