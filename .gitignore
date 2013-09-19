@@ -32,9 +32,11 @@
 /configure
 /configure.lineno
 /conftest*
+/doc/cross-options.texi~
 /gnulib
 /javacomp.sh
 /javaexec.sh
+/lib/gnulib.mk.bak
 /maint.mk
 /patches
 /releases
