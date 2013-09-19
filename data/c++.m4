@@ -321,6 +321,8 @@ m4_define([b4_public_types_define],
   {]b4_variant_if([[
     // User destructor.
     symbol_number_type yytype = this->type_get ();
+    semantic_type* yyvaluep = &value;
+    (void) yyvaluep;
     switch (yytype)
     {
 ]b4_symbol_foreach([b4_symbol_destructor])dnl
