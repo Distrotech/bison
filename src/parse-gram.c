@@ -1,4 +1,4 @@
-/* A Bison parser, made by GNU Bison 2.7.12-4996.  */
+/* A Bison parser, made by GNU Bison 2.7.1.  */
 
 /* Bison implementation for Yacc-like parsers in C
    
@@ -44,7 +44,7 @@
 #define YYBISON 1
 
 /* Bison version.  */
-#define YYBISON_VERSION "2.7.12-4996"
+#define YYBISON_VERSION "2.7.1"
 
 /* Skeleton name.  */
 #define YYSKELETON_NAME "yacc.c"
@@ -189,8 +189,8 @@ current_lhs(symbol *sym, location loc, named_ref *ref)
 
 /* In a future release of Bison, this section will be replaced
    by #include "parse-gram.h".  */
-#ifndef YY_GRAM__SRC_PARSE_GRAM_H_INCLUDED
-# define YY_GRAM__SRC_PARSE_GRAM_H_INCLUDED
+#ifndef YY_GRAM_PARSE_GRAM_H_INCLUDED
+# define YY_GRAM_PARSE_GRAM_H_INCLUDED
 /* Enabling traces.  */
 #ifndef GRAM_DEBUG
 # if defined YYDEBUG
@@ -384,7 +384,7 @@ int gram_parse ();
 #endif
 #endif /* ! YYPARSE_PARAM */
 
-#endif /* !YY_GRAM__SRC_PARSE_GRAM_H_INCLUDED  */
+#endif /* !YY_GRAM_PARSE_GRAM_H_INCLUDED  */
 
 /* Copy the second part of user declarations.  */
 

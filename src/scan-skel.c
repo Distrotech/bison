@@ -235,6 +235,7 @@ extern FILE *skel_in, *skel_out;
 #define EOB_ACT_LAST_MATCH 2
 
     #define YY_LESS_LINENO(n)
+    #define YY_LINENO_REWIND_TO(ptr)
     
 /* Return all but the first "n" matched characters back to the input stream. */
 #define yyless(n) \
@@ -443,6 +444,8 @@ int skel_lineno = 1;
 extern char *skel_text;
 #define yytext_ptr skel_text
 
+/* %% [1.5] DFA */
+
 /* %if-c-only Standard (non-C++) definition */
 
 static yy_state_type yy_get_previous_state (void );
@@ -650,7 +653,7 @@ static void fail_for_at_directive_too_few_args (char const *at_directive_name);
 static void fail_for_invalid_at (char const *at);
 
 
-#line 654 "scan-skel.c"
+#line 657 "scan-skel.c"
 
 #define INITIAL 0
 #define SC_AT_DIRECTIVE_ARGS 1
@@ -907,7 +910,7 @@ YY_DECL
   char *at_directive_argv[AT_DIRECTIVE_ARGC_MAX];
 
 
-#line 911 "scan-skel.c"
+#line 914 "scan-skel.c"
 
 	if ( !(yy_init) )
 		{
@@ -961,7 +964,7 @@ YY_DECL
 yy_match:
 		do
 			{
-			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)];
+			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
 			if ( yy_accept[yy_current_state] )
 				{
 				(yy_last_accepting_state) = yy_current_state;
@@ -1185,7 +1188,7 @@ YY_RULE_SETUP
 #line 150 "scan-skel.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 1189 "scan-skel.c"
+#line 1192 "scan-skel.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -2005,7 +2008,7 @@ YY_BUFFER_STATE skel__scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_l
 	YY_BUFFER_STATE b;
 	char *buf;
 	yy_size_t n;
-	int i;
+	yy_size_t i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
 	n = _yybytes_len + 2;

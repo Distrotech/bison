@@ -235,6 +235,7 @@ extern FILE *code_in, *code_out;
 #define EOB_ACT_LAST_MATCH 2
 
     #define YY_LESS_LINENO(n)
+    #define YY_LINENO_REWIND_TO(ptr)
     
 /* Return all but the first "n" matched characters back to the input stream. */
 #define yyless(n) \
@@ -442,6 +443,8 @@ int code_lineno = 1;
 
 extern char *code_text;
 #define yytext_ptr code_text
+
+/* %% [1.5] DFA */
 
 /* %if-c-only Standard (non-C++) definition */
 
@@ -731,7 +734,7 @@ of $ and @.  */
 /* C style identifier. Must start with letter. Will be used for
    named symbol references. Shall be kept synchronized with
    scan-gram.l "letter" and "id". */
-#line 735 "scan-code.c"
+#line 738 "scan-code.c"
 
 #define INITIAL 0
 #define SC_COMMENT 1
@@ -1014,7 +1017,7 @@ YY_DECL
   | Scanning a C comment.  The initial '/ *' is already eaten.  |
   `------------------------------------------------------------*/
 
-#line 1018 "scan-code.c"
+#line 1021 "scan-code.c"
 
 	if ( !(yy_init) )
 		{
@@ -1068,7 +1071,7 @@ YY_DECL
 yy_match:
 		do
 			{
-			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)];
+			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
 			if ( yy_accept[yy_current_state] )
 				{
 				(yy_last_accepting_state) = yy_current_state;
@@ -1398,7 +1401,7 @@ YY_RULE_SETUP
 #line 294 "scan-code.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 1402 "scan-code.c"
+#line 1405 "scan-code.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -2218,7 +2221,7 @@ YY_BUFFER_STATE code__scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_l
 	YY_BUFFER_STATE b;
 	char *buf;
 	yy_size_t n;
-	int i;
+	yy_size_t i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
 	n = _yybytes_len + 2;

@@ -235,6 +235,7 @@ extern FILE *gram_in, *gram_out;
 #define EOB_ACT_LAST_MATCH 2
 
     #define YY_LESS_LINENO(n)
+    #define YY_LINENO_REWIND_TO(ptr)
     
 /* Return all but the first "n" matched characters back to the input stream. */
 #define yyless(n) \
@@ -442,6 +443,8 @@ int gram_lineno = 1;
 
 extern char *gram_text;
 #define yytext_ptr gram_text
+
+/* %% [1.5] DFA */
 
 /* %if-c-only Standard (non-C++) definition */
 
@@ -1048,7 +1051,7 @@ to capture the sequence 'identifier :'. */
    NUL and newline, as this simplifies our implementation.  */
 /* Zero or more instances of backslash-newline.  Following GCC, allow
    white space between the backslash and the newline.  */
-#line 1052 "scan-gram.c"
+#line 1055 "scan-gram.c"
 
 #define INITIAL 0
 #define SC_YACC_COMMENT 1
@@ -1331,7 +1334,7 @@ YY_DECL
   | Scanning white space.  |
   `-----------------------*/
 
-#line 1335 "scan-gram.c"
+#line 1338 "scan-gram.c"
 
 	if ( !(yy_init) )
 		{
@@ -1386,7 +1389,7 @@ YY_DECL
 yy_match:
 		do
 			{
-			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)];
+			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
 			if ( yy_accept[yy_current_state] )
 				{
 				(yy_last_accepting_state) = yy_current_state;
@@ -2432,7 +2435,7 @@ YY_RULE_SETUP
 #line 721 "scan-gram.l"
 YY_FATAL_ERROR( "flex scanner jammed" );
 	YY_BREAK
-#line 2436 "scan-gram.c"
+#line 2439 "scan-gram.c"
 case YY_STATE_EOF(SC_RETURN_BRACKETED_ID):
 	yyterminate();
 
@@ -3256,7 +3259,7 @@ YY_BUFFER_STATE gram__scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_l
 	YY_BUFFER_STATE b;
 	char *buf;
 	yy_size_t n;
-	int i;
+	yy_size_t i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
 	n = _yybytes_len + 2;
