@@ -183,3 +183,5 @@
 /absolute-header.m4
 /lstat.m4
 /unlink.m4
+/gettimeofday.m4
+/sys_time_h.m4
