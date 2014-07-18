@@ -655,13 +655,9 @@ b4_percent_code_get[]dnl
 
 #define YYSIZEMAX ((size_t) -1)
 
-#ifdef __cplusplus
-   typedef bool yybool;
-#else
-   typedef unsigned char yybool;
-#endif
 #define yytrue 1
 #define yyfalse 0
+
 
 #ifndef YYSETJMP
 # include <setjmp.h>
@@ -745,7 +741,7 @@ static const ]b4_int_type_for([b4_merger])[ yymerger[] =
 
 /* YYIMMEDIATE[RULE-NUM] -- True iff rule #RULE-NUM is not to be deferred, as
    in the case of predicates.  */
-static const yybool yyimmediate[] =
+static const bool yyimmediate[] =
 {
   ]b4_immediate[
 };
@@ -1050,10 +1046,10 @@ struct yy_glr_state {]b4_variant_if([[
     return *this;
   }]])[
   /** Type tag: always true.  */
-  yybool yyisState;
+  bool yyisState;
   /** Type tag for yysemantics.  If true, yysval applies, otherwise
    *  yyfirstVal applies.  */
-  yybool yyresolved;
+  bool yyresolved;
   /** Number of corresponding LALR(1) machine state.  */
   yy_state_num yylrState;
   /** Preceding state in this stack */
@@ -1078,13 +1074,13 @@ struct yy_glr_stateSet {
    *  stacks have actually needed the current lookahead.  During deterministic
    *  operation, yylookaheadNeeds[0] is not maintained since it would merely
    *  duplicate yychar != YYEMPTY.  */
-  yybool* yylookaheadNeeds;
+  bool* yylookaheadNeeds;
   size_t yysize, yycapacity;
 };
 
 struct yy_semantic_option {
   /** Type tag: always false.  */
-  yybool yyisState;
+  bool yyisState;
   /** Rule number for this reduction */
   yy_rule_num yyrule;
   /** The last RHS state in the list of states to be reduced.  */
@@ -1205,10 +1201,10 @@ yyfillin (yy_glr_stack_item *yyvsp, int yylow0, int yylow1)
 /* Do nothing if YYNORMAL or if *YYLOW <= YYLOW1.  Otherwise, fill in
  * YYVSP[YYLOW1 .. *YYLOW-1] as in yyfillin and set *YYLOW = YYLOW1.
  * For convenience, always return YYLOW1.  */
-static inline int yyfill (yy_glr_stack_item *, int *, int, yybool)
+static inline int yyfill (yy_glr_stack_item *, int *, int, bool)
      YY_ATTRIBUTE_UNUSED;
 static inline int
-yyfill (yy_glr_stack_item *yyvsp, int *yylow, int yylow1, yybool yynormal)
+yyfill (yy_glr_stack_item *yyvsp, int *yylow, int yylow1, bool yynormal)
 {
   if (!yynormal && yylow1 < *yylow)
     {
@@ -1228,7 +1224,7 @@ yyuserAction (yy_rule_num yyn, size_t yyrhslen, yy_glr_stack_item* yyvsp,
               yy_glr_stack* yystackp,
               YYSTYPE* yyvalp]b4_locuser_formals[)
 {
-  yybool yynormal YY_ATTRIBUTE_UNUSED = (yystackp->yysplitPoint == YY_NULLPTR);
+  bool yynormal YY_ATTRIBUTE_UNUSED = (yystackp->yysplitPoint == YY_NULLPTR);
   //  std::cerr << "yyuserAction" << std::endl;
   int yylow;
 ]b4_parse_param_use([yyvalp], [yylocp])dnl
@@ -1350,7 +1346,7 @@ yylhsNonterm (yy_rule_num yyrule)
 
 /** True iff LR state YYSTATE has only a default reduction (regardless
  *  of token).  */
-static inline yybool
+static inline bool
 yyisDefaultedState (yy_state_num yystate)
 {
   return yypact_value_is_default (yypact[yystate]);
@@ -1411,13 +1407,13 @@ yyLRgotoState (yy_state_num yystate, yy_symbol yysym)
     return yydefgoto[yysym - YYNTOKENS];
 }
 
-static inline yybool
+static inline bool
 yyisShiftAction (int yyaction)
 {
   return 0 < yyaction;
 }
 
-static inline yybool
+static inline bool
 yyisErrorAction (int yyaction)
 {
   return yyaction == 0;
@@ -1431,7 +1427,7 @@ yyisErrorAction (int yyaction)
  *  headroom.  */
 
 static inline yy_glr_stack_item*
-yynewGLRStackItem (yy_glr_stack* yystackp, yybool yyisState)
+yynewGLRStackItem (yy_glr_stack* yystackp, bool yyisState)
 {
   yy_glr_stack_item* yynewItem = yystackp->yynextFree;
   yystackp->yyspaceLeft -= 1;
@@ -1480,7 +1476,7 @@ yyaddDeferredAction (yy_glr_stack* yystackp, size_t yyk, yy_glr_state* yystate,
                                 /* GLRStacks */
 
 /** Initialize YYSET to a singleton set containing an empty stack.  */
-static yybool
+static bool
 yyinitStateSet (yy_glr_stateSet* yyset)
 {
   yyset->yysize = 1;
@@ -1490,7 +1486,7 @@ yyinitStateSet (yy_glr_stateSet* yyset)
     return yyfalse;
   yyset->yystates[0] = YY_NULLPTR;
   yyset->yylookaheadNeeds =
-    (yybool*) YYMALLOC (16 * sizeof yyset->yylookaheadNeeds[0]);
+    (bool*) YYMALLOC (16 * sizeof yyset->yylookaheadNeeds[0]);
   if (! yyset->yylookaheadNeeds)
     {
       YYFREE (yyset->yystates);
@@ -1507,7 +1503,7 @@ static void yyfreeStateSet (yy_glr_stateSet* yyset)
 
 /** Initialize *YYSTACKP to a single empty stack, with total maximum
  *  capacity for all stacks of YYSIZE.  */
-static yybool
+static bool
 yyinitGLRStack (yy_glr_stack* yystackp, size_t yysize)
 {
   yystackp->yyerrState = 0;
@@ -1554,7 +1550,7 @@ yyexpandGLRStack (yy_glr_stack* yystackp)
        yyn -= 1, yyp0 += 1, yyp1 += 1)
     {
       *yyp1 = *yyp0;
-      if (*(yybool *) yyp0)
+      if (*(bool *) yyp0)
         {
           yy_glr_state* yys0 = &yyp0->yystate;
           yy_glr_state* yys1 = &yyp1->yystate;
@@ -1860,7 +1856,7 @@ yydoAction (yy_glr_stack* yystackp, size_t yyk, yy_rule_num yyrule,
  */
 static inline YYRESULTTAG
 yyglrReduce (yy_glr_stack* yystackp, size_t yyk, yy_rule_num yyrule,
-             yybool yyforceEval]b4_user_formals[)
+             bool yyforceEval]b4_user_formals[)
 {
   size_t yyposn = yystackp->yytops.yystates[yyk]->yyposn;
 
@@ -1946,7 +1942,7 @@ yysplitStack (yy_glr_stack* yystackp, size_t yyk)
     {]b4_variant_if([
       YYASSERT (!"Not implemented");])[
       yy_glr_state** yynewStates;
-      yybool* yynewLookaheadNeeds;
+      bool* yynewLookaheadNeeds;
 
       yynewStates = YY_NULLPTR;
 
@@ -1964,7 +1960,7 @@ yysplitStack (yy_glr_stack* yystackp, size_t yyk)
       yystackp->yytops.yystates = yynewStates;
 
       yynewLookaheadNeeds =
-        (yybool*) YYREALLOC (yystackp->yytops.yylookaheadNeeds,
+        (bool*) YYREALLOC (yystackp->yytops.yylookaheadNeeds,
                              (yystackp->yytops.yycapacity
                               * sizeof yynewLookaheadNeeds[0]));
       if (yynewLookaheadNeeds == YY_NULLPTR)
@@ -1982,7 +1978,7 @@ yysplitStack (yy_glr_stack* yystackp, size_t yyk)
 /** True iff YYY0 and YYY1 represent identical options at the top level.
  *  That is, they represent the same rule applied to RHS symbols
  *  that produce the same terminal symbols.  */
-static yybool
+static bool
 yyidenticalOptions (yy_semantic_option* yyy0, yy_semantic_option* yyy1)
 {
   if (yyy0->yyrule == yyy1->yyrule)
@@ -2284,7 +2280,7 @@ yyresolveValue (yy_glr_state* yys, yy_glr_stack* yystackp]b4_user_formals[)
   yy_semantic_option* yyoptionList = yys->yysemantics.yyfirstVal;
   yy_semantic_option* yybest = yyoptionList;
   yy_semantic_option** yypp;
-  yybool yymerge = yyfalse;
+  bool yymerge = yyfalse;
   YYSTYPE yysval;
   YYRESULTTAG yyflag;]b4_locations_if([
   YYLTYPE *yylocp = &yys->yyloc;])[
@@ -2547,7 +2543,7 @@ yyreportSyntaxError (yy_glr_stack* yystackp]b4_user_formals[)
   yy_symbol yytoken = yychar == YYEMPTY ? YYEMPTY : YYTRANSLATE (yychar);
   size_t yysize0 = yytnamerr (YY_NULLPTR, yytokenName (yytoken));
   size_t yysize = yysize0;
-  yybool yysize_overflow = yyfalse;
+  bool yysize_overflow = yyfalse;
   char* yymsg = YY_NULLPTR;
   enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
   /* Internationalized format string. */
@@ -3072,7 +3068,7 @@ yypdumpstack (yy_glr_stack* yystackp)
     {
       YYFPRINTF (stderr, "%3lu. ",
                  (unsigned long int) (yyp - yystackp->yyitems));
-      if (*(yybool *) yyp)
+      if (*(bool *) yyp)
         {
           YYASSERT (yyp->yystate.yyisState);
           YYASSERT (yyp->yyoption.yyisState);
