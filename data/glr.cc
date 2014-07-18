@@ -421,30 +421,17 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_wrap]))
 
 
 
-# b4_glr_cc_if([IF-TRUE], [IF-FALSE])
-# -----------------------------------
-m4_define([b4_glr_cc_if],
-          [m4_if(b4_skeleton, ["glr.cc"], $@)])
-
 # When glr.c is used from glr.cc, it has provided the version of
 # b4_symbol_value and b4_symbol_value_template that are needed.  c.m4
 # provides other definitions.  So save and restore the C++
 # definitions.
 
-b4_glr_cc_if([
   m4_pushdef([b4_symbol_value])
   m4_pushdef([b4_symbol_value_template])
-])
 
-# If we are loaded by glr.cc, do not override c++.m4 definitions by
-# those of c.m4.
-m4_if(b4_skeleton, ["glr.c"],
-      [m4_include(b4_pkgdatadir/[c.m4])])
 
-b4_glr_cc_if([
   m4_popdef([b4_symbol_value_template])
   m4_popdef([b4_symbol_value])
-])
 
 ## ---------------- ##
 ## Default values.  ##
@@ -551,10 +538,8 @@ m4_define([b4_rhs_data],
 
 # We temporarily allow changes in the stack as we often transfer
 # ownership bw lhs and rhs, e.g. std::swap($$, $1).
-b4_glr_cc_if([
-  m4_define([b4_rhs_data],
-  [yyvsp@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
-])
+m4_define([b4_rhs_data],
+[yyvsp@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
 
 # b4_rhs_value(RULE-LENGTH, NUM, [TYPE])
 # --------------------------------------
@@ -584,24 +569,6 @@ m4_define([b4_rhs_location],
 [(b4_rhs_data([$1], [$2]).yyloc)])
 
 
-## -------------- ##
-## Declarations.  ##
-## -------------- ##
-
-# b4_shared_declarations
-# ----------------------
-# Declaration that might either go into the header (if --defines)
-# or open coded in the parser body.  glr.cc has its own definition.
-m4_if(b4_skeleton, ["glr.c"],
-[m4_define([b4_shared_declarations],
-[b4_declare_yydebug[
-]b4_percent_code_get([[requires]])[
-]b4_token_enums[
-]b4_declare_yylstype[
-]b4_function_declare(b4_prefix[parse], [int], b4_parse_param)[
-]b4_percent_code_get([[provides]])[]dnl
-])
-])
 
 ## -------------- ##
 ## Output files.  ##
