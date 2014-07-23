@@ -100,6 +100,26 @@ m4_bpatsubst(m4_dquote(m4_bpatsubst(m4_dquote(b4_namespace_ref[ ]),
              [::\([^][:]\|:[^:]\)*], [} ])[} // ]b4_namespace_ref])])
 
 
+# b4_integral_parser_table_declare(TABLE-NAME, CONTENT, COMMENT)
+# --------------------------------------------------------------
+# Declare "parser::yy<TABLE-NAME>_" whose contents is CONTENT.
+m4_define([b4_integral_parser_table_declare],
+[m4_ifval([$3], [b4_comment([$3], [  ])
+])dnl
+  static const b4_int_type_for([$2]) yy$1_[[]];dnl
+])
+
+# b4_integral_parser_table_define(TABLE-NAME, CONTENT, COMMENT)
+# -------------------------------------------------------------
+# Define "parser::yy<TABLE-NAME>_" whose contents is CONTENT.
+m4_define([b4_integral_parser_table_define],
+[  const b4_int_type_for([$2])
+  b4_parser_class_name::yy$1_[[]] =
+  {
+  $2
+  };dnl
+])
+
 # b4_token_enums
 # --------------
 # Output the definition of the tokens as enums.

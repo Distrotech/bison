@@ -110,7 +110,7 @@ m4_define([b4_variant_define],
     /// Destruction, allowed only if empty.
     ~variant ()
     {]b4_parse_assert_if([
-      YYASSERT (!yytname_);
+      //YYASSERT (!yytname_);
     ])[}
 
     /// Instantiate an empty \a T in here.
