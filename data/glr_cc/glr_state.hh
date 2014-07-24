@@ -1,27 +1,16 @@
 [
-/** State numbers, as in LALR(1) machine */
-typedef int yy_state_num;
 
+template <typename YYParser>
 class yy_glr_state
 {
+  typedef yy_glr_state<YYParser> this_type;
+  typedef typename YYParser::semantic_type YYSTYPE;
+  typedef typename YYParser::location_type YYLTYPE;
 public:
-  yy_glr_state(yy_state_num lr_state, size_t posn, yy_glr_state* state
-                     ]b4_locations_if([[, YYLTYPE& loc]])[)
-  : yylrState(lr_state)
-  , yypred(state)
-  , yyposn(posn)
-  , yysemantic(new yy_semantic_simple_value())
-  {
-  ]b4_variant_if([[
-    ]b4_symbol_variant([[yystos[yylrState]]], [[yynewState->yysemantics.yysval]],
-                       [move], [*yyvalp])], [[
-    yynewState->yysemantics.yysval = *yyvalp;]])[
-]b4_locations_if([b4_variant_if(
-  [[std::swap(yyloc, loc);]],
-  [[yyloc = loc;]])])[
-  }
+  yy_glr_state(yy_state_num lr_state, size_t posn, this_type* state
+                     ]b4_locations_if([[, YYLTYPE& loc]])[);
 
-  yy_glr_state(yy_state_num lr_state, size_t posn, yy_glr_state* state)
+  yy_glr_state(yy_state_num lr_state, size_t posn, this_type* state)
   : yylrState(lr_state)
   , yypred(state)
   , yyposn(posn)
@@ -35,27 +24,22 @@ public:
   , yysemantic(YY_NULLPTR)
   {}
 
-  yy_glr_state(const yy_glr_state& that)
-  yy_glr_state& operator=(const yy_glr_state& that);
+  yy_glr_state(const this_type& that);
+  this_type& operator=(const this_type& that);
 
-  yy_glr_state* next()
+  yy_semantic_option<YYParser> * get_semantic_option()
   {
-    return static_cast<yy_glr_state*>(yynext);
+    return static_cast<yy_semantic_option<YYParser>*>(yysemantic);
   }
 
-  yy_semantic_option * get_semantic_option()
-  {
-    return static_cast<yy_semantic_option*>(yysemantic);
-  }
-
-  void set_semantic_value(yy_semantic_value_abstract * value)
+  void set_semantic_value(yy_semantic_value_abstract<YYParser> * value)
   {
     yysemantic = value;
   }
 
   void destroy(const std::string& msg);
 
-  void yy_yypstack (yy_glr_state* yys);
+  void yy_yypstack (this_type* yys);
 
 private:
   /** Type tag: always true.  */
@@ -66,11 +50,11 @@ private:
   /** Number of corresponding LALR(1) machine state.  */
   yy_state_num yylrState;
   /** Preceding state in this stack */
-  yy_glr_state* yypred;
+  this_type* yypred;
   /** Source position of the last token produced by my symbol */
   size_t yyposn;
 
-  yy_semantic_value_abstract *yysemantic;
+  yy_semantic_value_abstract<YYParser> *yysemantic;
   //struct { // on union, when no variant
   //  /** First in a chain of alternative reductions producing the
   //   *  non-terminal corresponding to this state, threaded through
@@ -83,38 +67,15 @@ private:
   YYLTYPE yyloc;
 };
 
+template <typename YYParser>
+static void yypstates (yy_glr_state<YYParser>* yyst);
 
-void yy_glr_state::destroy(const std::string& msg)
-{
-  if (yysemantics)
-    yysemantics->destroy(msg, yystos[yylrState]]b4_locuser_args([&yyloc])[);
-}
-
-void yy_glr_state::yy_yypstack ()
-{
-  if (yypred)
-    {
-      yy_yypstack (yypred);
-      YYFPRINTF (stderr, " -> ");
-    }
-  YYFPRINTF (stderr, "%d@@%lu", yylrState,
-             (unsigned long int) yyposn);
-}
-
-static void yypstates (yy_glr_state* yyst)
-{
-  if (yyst == YY_NULLPTR)
-    YYFPRINTF (stderr, "<null>");
-  else
-    yyst->yy_yypstack ();
-  YYFPRINTF (stderr, "\n");
-}
-
+template <typename YYParser>
 class yy_glr_stateSet {
 public:
   yy_glr_stateSet()
   {
-    yystates.emplace_back(nullptr);
+    yystates.emplace_back(YY_NULLPTR);
   }
 
   size_t size() const
@@ -125,11 +86,11 @@ public:
   void split_stack()
   {
     yystates.push_back(yystates.back());
-    yylookahaedNeeds.push_back(yylookahaedNeeds.back());
+    yylookaheadNeeds.push_back(yylookaheadNeeds.back());
   }
 
 private:
-  std::vector<yy_glr_state*> yystates;
+  std::vector<yy_glr_state<YYParser>*> yystates;
   /** During nondeterministic operation, yylookaheadNeeds tracks which
    *  stacks have actually needed the current lookahead.  During deterministic
    *  operation, yylookaheadNeeds[0] is not maintained since it would merely
