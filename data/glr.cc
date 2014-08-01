@@ -75,18 +75,29 @@ m4_defn([b4_parse_param]))],
 # The yylex_wrapper formal arguments.
 # Yes, this is quite ugly...
 m4_define([b4_lex_wrapper_formals],
-[b4_pure_if([[[[YYSTYPE *yylvalp]], [[yylvalp]]][]dnl
-b4_locations_if([, [[YYLTYPE *yyllocp], [yyllocp]]])])dnl
+[[[[yys_type *yylvalp]], [[yylvalp]]][]dnl
+b4_locations_if([, [[location_type *yyllocp], [yyllocp]]])
 m4_ifdef([b4_lex_param], [, ]b4_lex_param)])
 
 
 # b4_lex
 # ------
 # Call yylex.
-m4_define([b4_lex],
-[b4_function_call([b4_token_ctor_if(b4_namespace_ref[::yylex_wrapper],
+#m4_define([b4_lex],
+#[b4_function_call([b4_token_ctor_if(b4_namespace_ref[::yylex_wrapper],
                                     [yylex])],
                   [int], b4_lex_formals)])
+# b4_lex
+# ------
+# Call yylex.
+m4_define([b4_lex],
+[b4_token_ctor_if(
+[b4_function_call(b4_namespace_ref[::yylex_wrapper],
+                  [symbol_type], b4_lex_formals)],
+[b4_function_call([yylex], [int],
+                  [b4_api_PREFIX[STYPE*], [&yyla.value]][]dnl
+b4_locations_if([, [[location*], [&yyla.location]]])dnl
+m4_ifdef([b4_lex_param], [, ]b4_lex_param))])])
 
 
 ]b4_function_define([yy_symbol_print],
@@ -115,7 +126,6 @@ m4_defn([b4_initial_action])]))])[
 ]m4_append([b4_post_prologue],
 [b4_syncline([@oline@], [@ofile@])[
 ]b4_yylloc_default_define[
-#define YYRHSLOC(Rhs, K) ((Rhs)[K].yystate.yyloc)
 ]b4_function_declare([yyerror],
     [static void],b4_locations_if([
     [[const ]b4_namespace_ref::b4_parser_class_name[::location_type *yylocationp],
@@ -126,7 +136,7 @@ m4_defn([b4_initial_action])]))])[
 ]b4_token_ctor_if([
 ]b4_namespace_open[
   // A wrapper around a symbol_type returning yylex, to an old style yylex.
-  b4_function_declare([yylex_wrapper], [static int], b4_lex_formals)
+  b4_function_declare([yylex_wrapper], [static ]b4_parser_class_name[::symbol_type], b4_lex_formals)
 ]b4_namespace_close[
 ])
 ])
@@ -172,7 +182,7 @@ m4_append([b4_epilogue],
 ]b4_token_ctor_if([[
   // A wrapper around a symbol_type returning yylex, to an old style yylex.
 ]b4_function_define([yylex_wrapper],
-                    [static int],
+                    [static ]b4_namespace_ref::b4_parser_class_name[::symbol_type],
                     b4_lex_formals)[
   {
     ]b4_namespace_ref::b4_parser_class_name[::symbol_type s = ]dnl
@@ -180,9 +190,9 @@ b4_function_call([yylex], [], m4_unquote(b4_lex_param))[;
   ]b4_symbol_variant([[s.type]], [[(*yylvalp)]],
                      [build])
    b4_symbol_variant([[s.type]], [[(*yylvalp)]],
-                     [swap], [s.value])b4_locations_if([
+                     [swap], [s.get_value()])b4_locations_if([
     std::swap (*yyllocp, s.location);])[
-    return s.token ();
+    return s;
   }]])[
 
 ]dnl In this section, the parse params are the original parse_params.
@@ -190,8 +200,9 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
 [  /// Build a parser object.
   ]b4_parser_class_name::b4_parser_class_name[ (]b4_parse_param_decl[)]m4_ifset([b4_parse_param], [
     :])[
+    : yystack_(this)
 #if ]b4_api_PREFIX[DEBUG
-    ]m4_ifset([b4_parse_param], [  ], [ :])[yycdebug_ (&std::cerr)]m4_ifset([b4_parse_param], [,])[
+    ]m4_ifset([b4_parse_param], [  ], [ ,])[yycdebug_ (&std::cerr)]m4_ifset([b4_parse_param], [,])[
 #endif]b4_parse_param_cons[
   {
   }
@@ -200,73 +211,9 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_orig]))dnl
   {
   }
 
-  int
-  ]b4_parser_class_name[::parse ()
-  {
-    return ::yyparse (*this]b4_user_args[);
-  }
-
 ]b4_token_ctor_if([], [b4_yytranslate_define
 b4_public_types_define])[
 
-#if ]b4_api_PREFIX[DEBUG
-  /*--------------------.
-  | Print this symbol.  |
-  `--------------------*/
-
-  inline void
-  ]b4_parser_class_name[::yy_symbol_value_print_ (int yytype,
-                           const semantic_type* yyvaluep]b4_locations_if([[,
-                           const location_type* yylocationp]])[)
-  {]b4_locations_if([[
-    YYUSE (yylocationp);]])[
-    YYUSE (yyvaluep);
-    std::ostream& yyoutput = debug_stream ();
-    std::ostream& yyo = yyoutput;
-    YYUSE (yyo);
-    ]b4_symbol_actions([printer])[
-  }
-
-
-  void
-  ]b4_parser_class_name[::yy_symbol_print_ (int yytype,
-                           const semantic_type* yyvaluep]b4_locations_if([[,
-                           const location_type* yylocationp]])[)
-  {
-    *yycdebug_ << (yytype < YYNTOKENS ? "token" : "nterm")
-               << ' ' << yytname[yytype] << " ("]b4_locations_if([[
-               << *yylocationp << ": "]])[;
-    yy_symbol_value_print_ (yytype, yyvaluep]b4_locations_if([[, yylocationp]])[);
-    *yycdebug_ << ')';
-  }
-
-  std::ostream&
-  ]b4_parser_class_name[::debug_stream () const
-  {
-    return *yycdebug_;
-  }
-
-  void
-  ]b4_parser_class_name[::set_debug_stream (std::ostream& o)
-  {
-    yycdebug_ = &o;
-  }
-
-
-  ]b4_parser_class_name[::debug_level_type
-  ]b4_parser_class_name[::debug_level () const
-  {
-    return yydebug;
-  }
-
-  void
-  ]b4_parser_class_name[::set_debug_level (debug_level_type l)
-  {
-    // Actually, it is yydebug which is really used.
-    yydebug = l;
-  }
-
-#endif
 ]m4_popdef([b4_parse_param])dnl
 b4_namespace_close
 ])
@@ -291,18 +238,6 @@ m4_pushdef([b4_parse_param], m4_defn([b4_parse_param_wrap]))
 
 
 
-
-# When glr.c is used from glr.cc, it has provided the version of
-# b4_symbol_value and b4_symbol_value_template that are needed.  c.m4
-# provides other definitions.  So save and restore the C++
-# definitions.
-
-  m4_pushdef([b4_symbol_value])
-  m4_pushdef([b4_symbol_value_template])
-
-
-  m4_popdef([b4_symbol_value_template])
-  m4_popdef([b4_symbol_value])
 
 ## ---------------- ##
 ## Default values.  ##
@@ -329,8 +264,8 @@ m4_ifndef([b4_pure_flag],
 # b4_user_formals_no_comma
 # ---------------
 # The possible parse-params formal arguments, NOT preceded by a comma.
-m4_define([b4_user_formals_no_comma],
-[m4_ifset([b4_parse_param], [b4_formals(b4_parse_param)])])
+m4_define([b4_user_formals_no_comma], [])
+# [m4_ifset([b4_parse_param], [b4_formals(b4_parse_param)])])
 
 # b4_user_formals
 # ---------------
@@ -364,14 +299,14 @@ m4_ifset([b4_parse_param], [b4_args(b4_parse_param), ])])
 # ------------
 # Same as b4_yyerror_args, but with a leading comma.
 m4_define([b4_pure_args],
-[b4_pure_if([b4_locations_if([, yylocp])])[]b4_user_args])
+[b4_pure_if([b4_locations_if([, yylocp])])])
 
 
 # b4_lpure_args
 # -------------
 # Same as above, but on the lookahead, hence &yylloc instead of yylocp.
 m4_define([b4_lpure_args],
-[b4_pure_if([b4_locations_if([, &yylloc])])[]b4_user_args])
+[b4_pure_if([b4_locations_if([, &yylloc])])])
 
 
 
@@ -379,19 +314,19 @@ m4_define([b4_lpure_args],
 # ---------------
 # Arguments passed to yyerror: user formals plus yylocp with leading comma.
 m4_define([b4_pure_formals],
-[b4_pure_if([b4_locations_if([, YYLTYPE *yylocp])])[]b4_user_formals])
+[b4_pure_if([b4_locations_if([, location_type *yylocp])])])
 
 
 # b4_locuser_formals(LOC = yylocp)
 # --------------------------------
 m4_define([b4_locuser_formals],
-[b4_locations_if([, YYLTYPE *m4_default([$1], [yylocp])])[]b4_user_formals])
+[b4_locations_if([, location_type *m4_default([$1], [yylocp])])])
 
 
 # b4_locuser_args(LOC = yylocp)
 # -----------------------------
 m4_define([b4_locuser_args],
-[b4_locations_if([, m4_default([$1], [yylocp])])[]b4_user_args])
+[b4_locations_if([, m4_default([$1], [yylocp])])])
 
 
 
@@ -412,19 +347,22 @@ m4_define([b4_lhs_value],
 # Expand to the semantic stack place that contains value and location
 # of symbol number NUM in a rule of length RULE-LENGTH.
 m4_define([b4_rhs_data],
-[((yy_glr_stack_item const *)yyvsp)@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
+[yyargs@{$2@}])
+# [((yy_glr_stack_item const *)yyvsp)@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
 
 # We temporarily allow changes in the stack as we often transfer
 # ownership bw lhs and rhs, e.g. std::swap($$, $1).
-m4_define([b4_rhs_data],
-[yyvsp@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
+# m4_define([b4_rhs_data],
+# [yyvsp@{YYFILL (b4_subtract([$2], [$1]))@}.yystate])
 
 # b4_rhs_value(RULE-LENGTH, NUM, [TYPE])
 # --------------------------------------
 # Expansion of $<TYPE>NUM, where the current rule has RULE-LENGTH
 # symbols on RHS.
 m4_define([b4_rhs_value],
-[b4_symbol_value([b4_rhs_data([$1], [$2]).yysemantics.yysval], [$3])])
+[b4_symbol_value([b4_rhs_data([$1], [$2])->get_value()], [$3])])
+
+# [b4_symbol_value([b4_rhs_data([$1], [$2]).yysemantics.yysval], [$3])])
 
 
 
@@ -560,6 +498,12 @@ b4_percent_code_get([[top]])[
 # define YYERROR_VERBOSE ]b4_error_verbose_if([1], [0])[
 #endif
 
+#ifndef ]b4_api_PREFIX[STYPE
+# define ]b4_api_PREFIX[STYPE ]b4_namespace_ref[::]b4_parser_class_name[::semantic_type
+#endif
+#ifndef ]b4_api_PREFIX[LTYPE
+# define ]b4_api_PREFIX[LTYPE ]b4_namespace_ref[::]b4_parser_class_name[::location_type
+#endif
 ]b4_variant_if([], [/* Default (constant) value used for initialization for null
    right-hand sides.  Unlike the standard yacc.c template,
    here we set the default value of $$ to a zeroed-out value.
@@ -695,25 +639,28 @@ dnl We probably ought to introduce a type for confl.
 
 ]b4_locations_if([[
 ]b4_yylloc_default_define[
-# define YYRHSLOC(Rhs, K) ((Rhs)[K].yystate.yyloc)
+# define YYRHSLOC(Rhs, K) ((Rhs)[K].location)
 ]])[
 
-]#undef yynerrs
-#define yynerrs (yystackp->yyerrcnt)
-#undef yychar
-#define yychar (yystackp->yyrawchar)
-#undef yylval
-#define yylval (yystackp->yyval)
-#undef yylloc
-#define yylloc (yystackp->yyloc)
-m4_if(b4_prefix[], [yy], [],
+]m4_if(b4_prefix[], [yy], [],
 [#define b4_prefix[]nerrs yynerrs
 #define b4_prefix[]char yychar
 #define b4_prefix[]lval yylval
 #define b4_prefix[]lloc yylloc])[
 
 
+#define yydebug() yyparser.yydebug()
+#define yy_symbol_print_ yyparser.yy_symbol_print_
+/*-----------------------------------------------.
+| Release the memory associated to this symbol.  |
+`-----------------------------------------------*/
+
+#undef yydebug
+#undef yy_symbol_print_
+]m4_include(b4_pkgdatadir/[glr_cc/glr_semantic.cc])[
 ]m4_include(b4_pkgdatadir/[glr_cc/glr_stack.cc])[
+]m4_include(b4_pkgdatadir/[glr_cc/glr_state.cc])[
+]m4_include(b4_pkgdatadir/[glr_cc/glr.cc])[
 
 
 
@@ -798,327 +745,6 @@ yytnamerr (char *yyres, const char *yystr)
 }
 # endif
 
-/** State numbers, as in LALR(1) machine */
-typedef int yy_state_num;
-
-/** Rule numbers, as in LALR(1) machine */
-typedef int yy_rule_num;
-
-/** Grammar symbol */
-typedef int yy_symbol;
-
-]m4_include(b4_pkgdatadir/[glr_cc/glr_state.cc])[
-/** Item references, as in LALR(1) machine */
-typedef short int yy_item_num;
-
-typedef struct yy_glr_state yy_glr_state;
-typedef struct yy_glr_stateSet yy_glr_stateSet;
-typedef struct yy_semantic_option yy_semantic_option;
-typedef ]b4_variant_if([struct], [union])[ yy_glr_stack_item yy_glr_stack_item;
-typedef struct yy_glr_stack yy_glr_stack;
-
-
-]m4_include(b4_pkgdatadir/[glr_cc/glr_semantic.cc])[
-
-
-/** Type of the items in the GLR stack.  The yyisState field
- *  indicates which item of the union is valid.  */
-]b4_variant_if([struct], [union])[ yy_glr_stack_item {
-  yy_glr_state yystate;
-  yy_semantic_option yyoption;
-};
-
-struct yy_glr_stack {
-  int yyerrState;
-]b4_locations_if([[  /* To compute the location of the error token.  */
-  yy_glr_stack_item yyerror_range[3];]])[
-]b4_pure_if(
-[
-  int yyerrcnt;
-  int yyrawchar;
-  YYSTYPE yyval;]b4_locations_if([[
-  YYLTYPE yyloc;]])[
-])[
-  YYJMP_BUF yyexception_buffer;
-  yy_glr_stack_item* yyitems;
-  yy_glr_stack_item* yynextFree;
-  size_t yyspaceLeft;
-  yy_glr_state* yysplitPoint;
-  yy_glr_state* yylastDeleted;
-  yy_glr_stateSet yytops;
-};
-
-#if YYSTACKEXPANDABLE
-static void yyexpandGLRStack (yy_glr_stack* yystackp);
-#endif
-
-static _Noreturn void
-yyFail (yy_glr_stack* yystackp]b4_pure_formals[, const char* yymsg)
-{
-  if (yymsg != YY_NULLPTR)
-    yyerror (]b4_yyerror_args[yymsg);
-  YYLONGJMP (yystackp->yyexception_buffer, 1);
-}
-
-static _Noreturn void
-yyMemoryExhausted (yy_glr_stack* yystackp)
-{
-  YYLONGJMP (yystackp->yyexception_buffer, 2);
-}
-
-#if ]b4_api_PREFIX[DEBUG || YYERROR_VERBOSE
-/** A printable representation of TOKEN.  */
-static inline const char*
-yytokenName (yy_symbol yytoken)
-{
-  if (yytoken == YYEMPTY)
-    return "";
-
-  return yytname[yytoken];
-}
-#endif
-/** Perform user action for rule number YYN, with RHS length YYRHSLEN,
- *  and top stack item YYVSP.  YYLVALP points to place to put semantic
- *  value ($$), and yylocp points to place for location information
- *  (@@$).  Returns yyok for normal return, yyaccept for YYACCEPT,
- *  yyerr for YYERROR, yyabort for YYABORT.  */
-static YYRESULTTAG
-yyuserAction (yy_rule_num yyn, size_t yyrhslen, yy_glr_stack_item* yyvsp,
-              yy_glr_stack* yystackp,
-              YYSTYPE* yyvalp]b4_locuser_formals[)
-{
-  bool yynormal YY_ATTRIBUTE_UNUSED = (yystackp->yysplitPoint == YY_NULLPTR);
-  //  std::cerr << "yyuserAction" << std::endl;
-  int yylow;
-]b4_parse_param_use([yyvalp], [yylocp])dnl
-[  YYUSE (yyrhslen);
-# undef yyerrok
-# define yyerrok (yystackp->yyerrState = 0)
-# undef YYACCEPT
-# define YYACCEPT return yyaccept
-# undef YYABORT
-# define YYABORT return yyabort
-# undef YYERROR
-# define YYERROR return yyerrok, yyerr
-# undef YYRECOVERING
-# define YYRECOVERING() (yystackp->yyerrState != 0)
-# undef yyclearin
-# define yyclearin (yychar = YYEMPTY)
-# undef YYFILL
-# define YYFILL(N) yyfill (yyvsp, &yylow, N, yynormal)
-# undef YYBACKUP
-# define YYBACKUP(Token, Value)                                              \
-  return yyerror (]b4_yyerror_args[YY_("syntax error: cannot back up")),     \
-         yyerrok, yyerr
-
-  yylow = 1;]b4_variant_if([
-    /* Variants are always initialized to an empty instance of the
-       correct type. The default $$=$1 action is NOT applied when using
-       variants.  */
-    b4_symbol_variant([[yyr1@{yyn@}]], [(*yyvalp)], [build])], [[
-  if (yyrhslen == 0)
-    *yyvalp = yyval_default;
-  else
-    *yyvalp = yyvsp[YYFILL (1-yyrhslen)].yystate.yysemantics.yysval;]])b4_locations_if([[
-  YYLLOC_DEFAULT ((*yylocp), (yyvsp - yyrhslen), yyrhslen);
-  yystackp->yyerror_range[1].yystate.yyloc = *yylocp;
-]])[
-  switch (yyn)
-    {
-      ]b4_user_actions[
-      default: break;
-    }
-
-  //  std::cerr << "yyuserAction: return yyok" << std::endl;
-  return yyok;
-# undef yyerrok
-# undef YYABORT
-# undef YYACCEPT
-# undef YYERROR
-# undef YYBACKUP
-# undef yyclearin
-# undef YYRECOVERING
-}
-
-
-static void
-yyuserMerge (int yyn, YYSTYPE* yy0, YYSTYPE* yy1)
-{
-  YYUSE (yy0);
-  YYUSE (yy1);
-
-  switch (yyn)
-    {
-]b4_mergers[
-      default: break;
-    }
-}
-
-                              /* Bison grammar-table manipulation.  */
-
-]b4_yydestruct_define[
-
-/** Number of symbols composing the right hand side of rule #RULE.  */
-static inline int
-yyrhsLength (yy_rule_num yyrule)
-{
-  return yyr2[yyrule];
-}
-
-static void
-yydestroyGLRState (char const *yymsg, yy_glr_state *yys]b4_user_formals[)
-{
-  if (yys->yyresolved)
-    yydestruct (yymsg, yystos[yys->yylrState],
-                &yys->yysemantics.yysval]b4_locuser_args([&yys->yyloc])[);
-  else
-    {
-#if ]b4_api_PREFIX[DEBUG
-      if (yydebug)
-        {
-          if (yys->yysemantics.yyfirstVal)
-            YYFPRINTF (stderr, "%s unresolved", yymsg);
-          else
-            YYFPRINTF (stderr, "%s incomplete", yymsg);
-          YY_SYMBOL_PRINT ("", yystos[yys->yylrState], YY_NULLPTR, &yys->yyloc);
-        }
-#endif
-
-      if (yys->yysemantics.yyfirstVal)
-        {
-          yy_semantic_option *yyoption = yys->yysemantics.yyfirstVal;
-          yy_glr_state *yyrh;
-          int yyn;
-          for (yyrh = yyoption->yystate, yyn = yyrhsLength (yyoption->yyrule);
-               yyn > 0;
-               yyrh = yyrh->yypred, yyn -= 1)
-            yydestroyGLRState (yymsg, yyrh]b4_user_args[);
-        }
-    }
-}
-
-/** Left-hand-side symbol for rule #YYRULE.  */
-static inline yy_symbol
-yylhsNonterm (yy_rule_num yyrule)
-{
-  return yyr1[yyrule];
-}
-
-#define yypact_value_is_default(Yystate) \
-  ]b4_table_value_equals([[pact]], [[Yystate]], [b4_pact_ninf])[
-
-/** True iff LR state YYSTATE has only a default reduction (regardless
- *  of token).  */
-static inline bool
-yyisDefaultedState (yy_state_num yystate)
-{
-  return yypact_value_is_default (yypact[yystate]);
-}
-
-/** The default reduction for YYSTATE, assuming it has one.  */
-static inline yy_rule_num
-yydefaultAction (yy_state_num yystate)
-{
-  return yydefact[yystate];
-}
-
-#define yytable_value_is_error(Yytable_value) \
-  ]b4_table_value_equals([[table]], [[Yytable_value]], [b4_table_ninf])[
-
-/** Set *YYACTION to the action to take in YYSTATE on seeing YYTOKEN.
- *  Result R means
- *    R < 0:  Reduce on rule -R.
- *    R = 0:  Error.
- *    R > 0:  Shift to state R.
- *  Set *YYCONFLICTS to a pointer into yyconfl to a 0-terminated list
- *  of conflicting reductions.
- */
-static inline void
-yygetLRActions (yy_state_num yystate, int yytoken,
-                int* yyaction, const short int** yyconflicts)
-{
-  int yyindex = yypact[yystate] + yytoken;
-  if (yypact_value_is_default (yypact[yystate])
-      || yyindex < 0 || YYLAST < yyindex || yycheck[yyindex] != yytoken)
-    {
-      *yyaction = -yydefact[yystate];
-      *yyconflicts = yyconfl;
-    }
-  else if (! yytable_value_is_error (yytable[yyindex]))
-    {
-      *yyaction = yytable[yyindex];
-      *yyconflicts = yyconfl + yyconflp[yyindex];
-    }
-  else
-    {
-      *yyaction = 0;
-      *yyconflicts = yyconfl + yyconflp[yyindex];
-    }
-}
-
-/** Compute post-reduction state.
- * \param yystate   the current state
- * \param yysym     the nonterminal to push on the stack
- */
-static inline yy_state_num
-yyLRgotoState (yy_state_num yystate, yy_symbol yysym)
-{
-  int yyr = yypgoto[yysym - YYNTOKENS] + yystate;
-  if (0 <= yyr && yyr <= YYLAST && yycheck[yyr] == yystate)
-    return yytable[yyr];
-  else
-    return yydefgoto[yysym - YYNTOKENS];
-}
-
-static inline bool
-yyisShiftAction (int yyaction)
-{
-  return 0 < yyaction;
-}
-
-static inline bool
-yyisErrorAction (int yyaction)
-{
-  return yyaction == 0;
-}
-
-
-
-]b4_variant_if([[
-static inline void
-yysymbolCopy (int& yychar1, YYSTYPE& yyval1]b4_locations_if([, YYLTYPE& yyloc1])[,
-              const int& yychar2, const YYSTYPE& yyval2]b4_locations_if([, const YYLTYPE& yyloc2])[)
-{
-  ]b4_symbol_variant([[YYTRANSLATE (yychar2)]], [[yyval1]],
-                     [copy], [yyval2])[
-  yychar1 = yychar2;]b4_locations_if([
-  yyloc1 = yyloc2;])[
-}
-
-static inline void
-yysymbolSwap (int& yychar1, YYSTYPE& yyval1]b4_locations_if([, YYLTYPE& yyloc1])[,
-              int& yychar2, YYSTYPE& yyval2]b4_locations_if([, YYLTYPE& yyloc2])[)
-{
-  ]b4_symbol_variant([[YYTRANSLATE (yychar2)]], [[yyval1]],
-                     [swap], [yyval2])[
-  std::swap (yychar1, yychar2);]b4_locations_if([[
-  std::swap (yyloc1,  yyloc2);]])[
-}
-#define YY_SYMBOL_COPY yysymbolCopy
-#define YY_SYMBOL_SWAP yysymbolSwap
-]],
-[[
-#define YY_SYMBOL_COPY(Yychar1, Yyval1]b4_locations_if([, Yyloc1])[, Yychar2, Yyval2]b4_locations_if([, Yyloc2])[) \
-  do {                                                                  \
-    Yychar1 = Yychar2;                                                  \
-    Yyval1  = Yyval2;]b4_locations_if([[                                \
-    Yyloc1  = Yyloc2;]])[                                                   \
-  } while (0)
-
-#define YY_SYMBOL_SWAP(Yychar1, Yyval1]b4_locations_if([ ,Yyloc1])[, Yychar2, Yyval2]b4_locations_if([, Yyloc2])[) \
-    YY_SYMBOL_COPY(Yychar1, Yyval1]b4_locations_if([ ,Yyloc1])[, Yychar2, Yyval2]b4_locations_if([, Yyloc2])[)
-]])[
-}
 
 
 

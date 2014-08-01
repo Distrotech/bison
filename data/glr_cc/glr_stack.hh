@@ -19,26 +19,13 @@ yystpcpy (char *yydest, const char *yysrc);
 #  endif
 # endif
 
-/** Fill in YYVSP[YYLOW1 .. YYLOW0-1] from the chain of states starting
- *  at YYVSP[YYLOW0].yypred.  Leaves YYVSP[YYLOW1].yypred
- *  containing the pointer to the next state in the chain.  */
-template <typename YYParser>
-static void yyfillin (yy_glr_state<YYParser> *, int, int) YY_ATTRIBUTE_UNUSED;
-
-/* Do nothing if YYNORMAL or if *YYLOW <= YYLOW1.  Otherwise, fill in
- * YYVSP[YYLOW1 .. *YYLOW-1] as in yyfillin and set *YYLOW = YYLOW1.
- * For convenience, always return YYLOW1.  */
-template <typename YYParser>
-static inline int yyfill (yy_glr_state<YYParser> *, int *, int, bool)
-     YY_ATTRIBUTE_UNUSED;
-
 #if !]b4_api_PREFIX[DEBUG
 # define YY_REDUCE_PRINT(Args)
 #else
 # define YY_REDUCE_PRINT(Args)          \
 do {                                    \
-  if (yydebug)                          \
-    yy_reduce_print Args;               \
+  if (yydebug())                        \
+    parser->yy_reduce_print_ Args;      \
 } while (0)
 
 /*----------------------------------------------------------------------.
@@ -53,7 +40,7 @@ do {                                    \
 
 template <typename YYParser>
 static void
-yy_reduce_print (int yynormal, yy_glr_state<YYParser>* yyvsp, size_t yyk,
+yy_reduce_print (int yynormal, typename YYParser::stack_symbol_type* yyvsp, size_t yyk,
                  yy_rule_num yyrule]b4_user_formals[);
 #endif
 
@@ -77,33 +64,40 @@ yy_reduce_print (int yynormal, yy_glr_state<YYParser>* yyvsp, size_t yyk,
 
 template <typename YYParser>
 struct yy_glr_stack {
-private:
-  typedef typename YYParser::semantic_type YYSTYPE;
-  typedef typename YYParser::location_type YYLTYPE;
-  typedef yy_glr_state<YYParser> state_type;
-  typedef yy_glr_stateSet<YYParser> stateSet_type;
-  typedef yy_glr_stack<YYParser> stack_type;
-  typedef yy_semantic_option<YYParser> semantic_type;
+public:
+  typedef YYParser yyparser;
+  typedef typename yyparser::semantic_type yys_type;
+  typedef typename yyparser::location_type location_type;
+  typedef typename YYParser::stack_symbol_type state_type;
+  typedef yy_glr_stateSet<yyparser> stateSet_type;
+  typedef yy_glr_stack<yyparser> stack_type;
+  typedef yy_semantic_option<yyparser> semantic_type;
   int yyerrState;
   state_type yyerror_range[3];
   int yyerrcnt;
-  int yychar;
-  YYSTYPE yyval;
-  YYLTYPE yyloc;
+  yys_type yyval;
+  location_type yyloc;
   std::vector<state_type> yystate_pool;
-  std::vector<semantic_type> yysemantic_pool;
+  //std::vector<semantic_type> yysemantic_pool;
   //yy_glr_state* yyitems;
   state_type* yysplitPoint;
   state_type* yylastDeleted;
   stateSet_type yytops;
+  yyparser* parser;
 
 public:
-  yy_glr_stack()
+  yy_glr_stack(yyparser* p)
   : yyerrState(0)
   , yyerrcnt(0)
   , yysplitPoint(YY_NULLPTR)
   , yylastDeleted(YY_NULLPTR)
+  , parser(p)
   {}
+
+  yyparser* get_parser()
+  {
+    return parser;
+  }
 
   void yyaddDeferredAction (size_t yyk, state_type* yystate,
                      state_type* yyrhs, yy_rule_num yyrule);
@@ -121,9 +115,11 @@ public:
   void
   yymarkStackDeleted (size_t yyk)
   {
-    if (yytops.yystates[yyk] != YY_NULLPTR)
-      yylastDeleted = yytops.yystates[yyk];
-    yytops.yystates[yyk] = YY_NULLPTR;
+    if (yytops[yyk] != YY_NULLPTR)
+    {
+      yylastDeleted = yytops[yyk];
+      yytops.remove(yyk);
+    }
   }
 
   /** Undelete the last stack in *YYSTACKP that was marked as deleted.  Can
@@ -135,7 +131,7 @@ public:
 
   void
   yyglrShift (size_t yyk, yy_state_num yylrState, size_t yyposn,
-              YYSTYPE* yyvalp, YYLTYPE* yylocp);
+              yys_type* yyvalp, location_type* yylocp);
 
   /** Shift stack #YYK of *YYSTACKP, to a new state corresponding to LR
    *  state YYLRSTATE, at input position YYPOSN, with the (unresolved)
@@ -150,7 +146,8 @@ public:
    *  and *YYLOCP to the computed location (if any).  Return value is as
    *  for userAction.  */
   YYRESULTTAG
-  yydoAction (size_t yyk, yy_rule_num yyrule, YYSTYPE* yyvalp);
+  yydoAction (size_t yyk, yy_rule_num yyrule,
+              yys_type* yyvalp]b4_locations_if([, location_type* yylocp])[);
 
   /** Pop items off stack #YYK of *YYSTACKP according to grammar rule YYRULE,
    *  and push back on the resulting nonterminal symbol.  Perform the
@@ -164,8 +161,7 @@ public:
    *  added to the options for the existing state's semantic value.
    */
   YYRESULTTAG
-  yyglrReduce (size_t yyk, yy_rule_num yyrule,
-               bool yyforceEval]b4_user_formals[);
+  yyglrReduce (size_t yyk, yy_rule_num yyrule, bool yyforceEval);
 
   size_t
   yysplitStack (size_t yyk);
@@ -176,6 +172,25 @@ public:
   YYRESULTTAG
   yyprocessOneStack (size_t yyk, size_t yyposn]b4_pure_formals[);
 
+  YYRESULTTAG
+  yyresolveValue (state_type* yys);
+
+  /** Resolve the states for the RHS of YYOPT on *YYSTACKP, perform its
+   *  user action, and return the semantic value and location in *YYVALP
+   *  and *YYLOCP.  Regardless of whether result = yyok, all RHS states
+   *  have been destroyed (assuming the user action destroys all RHS
+   *  semantic values if invoked).  */
+  YYRESULTTAG
+  yyresolveAction (semantic_type* yyopt, yys_type* yyvalp]b4_locuser_formals[);
+
+  /** Perform user action for rule number YYN, with RHS length YYRHSLEN,
+   *  and top stack item YYVSP.  YYLVALP points to place to put semantic
+   *  value ($$), and yylocp points to place for location information
+   *  (@@$).  Returns yyok for normal return, yyaccept for YYACCEPT,
+   *  yyerr for YYERROR, yyabort for YYABORT.  */
+  YYRESULTTAG
+  yyuserAction (yy_rule_num yyn, size_t yyrhslen, state_type* yyvsp,
+                yys_type* yyvalp]b4_locuser_formals[);
   void
   yypstack (size_t yyk);
 
@@ -195,19 +210,9 @@ public:
   yyresolveLocations (state_type *yys1, int yyn1
                                     ]b4_user_formals[);
   ]])[
+
+  bool yydebug() const;
 };
-
-
-
-
-
-static _Noreturn void
-yyFail (const std::string& yymsg);
-
-static _Noreturn void
-yyMemoryExhausted ();
-
-
 
 
 ]

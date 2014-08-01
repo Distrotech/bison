@@ -262,7 +262,7 @@ m4_define([b4_value_type_declare],
 # ----------------------------
 m4_define([b4_symbol_value],
 [m4_ifval([$2],
-          [$1.as< $2 > ()],
+          [$1.template as< $2 > ()],
           [$1])])
 
 # b4_symbol_value_template(VAL, [TYPE])
@@ -347,7 +347,9 @@ m4_define([b4_basic_symbol_constructor_define],
           b4_symbol_if([$1], [has_type], const b4_symbol([$1], [type])[ v]),
           b4_locations_if([const location_type& l]))[)
     : Base (t)
-    , value (]b4_symbol_if([$1], [has_type], [v])[)]b4_locations_if([
+    ]m4_if(b4_skeleton, ["glr.cc"],[[
+    , yysemantic (new yy_semantic_simple_value<]b4_parser_class_name[>(]b4_symbol_if([$1], [has_type], [t, v])[))]],[[
+    , value (]b4_symbol_if([$1], [has_type], [v])[)]])b4_locations_if([
     , location (l)])[
   {}
 ]])

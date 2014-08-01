@@ -202,7 +202,7 @@ m4_define([b4_public_types_declare],
     ///
     /// Provide access to semantic value]b4_locations_if([ and location])[.
     template <typename Base>
-    struct basic_symbol : Base
+    struct basic_symbol : public Base
     {
       /// Alias to Base.
       typedef Base super_type;
@@ -223,6 +223,12 @@ m4_define([b4_public_types_declare],
       basic_symbol (typename Base::kind_type t,
                     const semantic_type& v]b4_locations_if([,
                     const location_type& l])[);
+]m4_if(b4_skeleton, ["glr.cc"], [[
+      /// Constructor for symbols with semantic value.
+      basic_symbol (typename Base::kind_type t,
+                    const yy_semantic_value_abstract<]b4_parser_class_name[>& v]b4_locations_if([,
+                    const location_type& l])[);
+]])[
 
       ~basic_symbol ();
 
@@ -230,12 +236,44 @@ m4_define([b4_public_types_declare],
       void move (basic_symbol& s);
 
       /// The semantic value.
-      semantic_type value;]b4_locations_if([
+]m4_if(b4_skeleton, ["glr.cc"], [[
+      yy_semantic_value_abstract<]b4_parser_class_name[> *yysemantic;]],[[
+      semantic_type value;]])[]b4_locations_if([
 
       /// The location.
       location_type location;])[
 
+]m4_if(b4_skeleton, ["glr.cc"], [[
+      semantic_type& get_value()
+      {
+        return yysemantic->get_value();
+      }
+
+      const semantic_type& get_value() const
+      {
+        return yysemantic->get_value();
+      }
+
+      yy_semantic_option<]b4_parser_class_name[> * get_semantic_option()
+      {
+        return static_cast<yy_semantic_option<]b4_parser_class_name[>*>(yysemantic);
+      }
+
+      void set_semantic_value(yy_semantic_value_abstract<]b4_parser_class_name[> * value)
+      {
+        yysemantic = value;
+      }]],[[
+      semantic_type get_value()
+      {
+        return value;
+      }
+      const semantic_type get_value() const
+      {
+        return value;
+      }]])[
+
     private:
+
       /// Assignment operator.
       basic_symbol& operator= (const basic_symbol& other);
     };
@@ -291,20 +329,22 @@ m4_define([b4_public_types_define],
   // basic_symbol.
   template <typename Base>
   inline
-  ]b4_parser_class_name[::basic_symbol<Base>::basic_symbol ()
-    : value ()
+  ]b4_parser_class_name[::basic_symbol<Base>::basic_symbol ()]m4_if(b4_skeleton, ["glr.cc"], [[
+    : yysemantic(YY_NULLPTR)]],[[
+    : value ()]])[
   {}
 
   template <typename Base>
   inline
   ]b4_parser_class_name[::basic_symbol<Base>::basic_symbol (const basic_symbol& other)
-    : Base (other)
-    , value ()]b4_locations_if([
+    : Base (other)]m4_if(b4_skeleton, ["glr.cc"], [[
+    , yysemantic(YY_NULLPTR)]],[[
+    , value ()]])[]b4_locations_if([
     , location (other.location)])[
   {
-    ]b4_variant_if([b4_symbol_variant([other.type_get ()], [value], [copy],
-                                      [other.value])],
-                   [value = other.value;])[
+    ]b4_variant_if([b4_symbol_variant([other.type_get ()], [get_value()], [template copy],
+                                      [other.get_value()])],
+                   [get_value() = other.get_value();])[
   }
 
 
@@ -314,12 +354,27 @@ m4_define([b4_public_types_define],
           [typename Base::kind_type t],
           [const semantic_type& v],
           b4_locations_if([const location_type& l]))[)
-    : Base (t)
-    , value (]b4_variant_if([], [v])[)]b4_locations_if([
+    : Base (t)]m4_if(b4_skeleton, ["glr.cc"], [[
+    , yysemantic(new yy_semantic_simple_value<]b4_parser_class_name[>(t, v))]],[[
+    , value (]b4_variant_if([], [v])[)]])[]b4_locations_if([
     , location (l)])[
   {]b4_variant_if([[
     (void) v;
-    ]b4_symbol_variant([this->type_get ()], [value], [copy], [v])])[}
+    ]b4_symbol_variant([this->type_get ()], [get_value()], [template copy], [v])])[}
+
+]m4_if(b4_skeleton, ["glr.cc"],[[
+  template <typename Base>
+  inline
+  ]b4_parser_class_name[::basic_symbol<Base>::basic_symbol (]b4_join(
+          [typename Base::kind_type t],
+          [const yy_semantic_value_abstract<]b4_parser_class_name[>& v],
+          b4_locations_if([const location_type& l]))[)
+    : Base (t)]m4_if(b4_skeleton, ["glr.cc"], [[
+    , yysemantic(v.clone())]],[[
+    , value (]b4_variant_if([], [v])[)]])[]b4_locations_if([
+    , location (l)])[
+  {}
+]])[
 
 ]b4_variant_if([[
   // Implementation of basic_symbol constructor for each type.
@@ -330,8 +385,9 @@ m4_define([b4_public_types_define],
   ]b4_parser_class_name[::basic_symbol<Base>::basic_symbol (]b4_join(
           [typename Base::kind_type t],
           b4_locations_if([const location_type& l]))[)
-    : Base (t)
-    , value ()]b4_locations_if([
+    : Base (t)]m4_if(b4_skeleton, ["glr.cc"], [[
+    , yysemantic(YY_NULLPTR)]],[[
+    , value ()]])[]b4_locations_if([
     , location (l)])[
   {}]])[
 
@@ -341,7 +397,7 @@ m4_define([b4_public_types_define],
   {]b4_variant_if([[
     // User destructor.
     symbol_number_type yytype = this->type_get ();
-    semantic_type* yyvaluep = &value;
+    semantic_type* yyvaluep = &get_value();
     (void) yyvaluep;
     switch (yytype)
     {
@@ -351,7 +407,8 @@ m4_define([b4_public_types_define],
     }
 
     // Type destructor.
-  ]b4_symbol_variant([[yytype]], [[value]], [[template destroy]])])[
+  ]b4_symbol_variant([[yytype]], [[get_value()]], [[template destroy]])])[
+  ]m4_if(b4_skeleton, ["glr.cc"], [[delete yyvaluep;]])[
   }
 
   template <typename Base>
@@ -360,9 +417,9 @@ m4_define([b4_public_types_define],
   ]b4_parser_class_name[::basic_symbol<Base>::move (basic_symbol& s)
   {
     super_type::move(s);
-    ]b4_variant_if([b4_symbol_variant([this->type_get ()], [value], [move],
-                                      [s.value])],
-                   [value = s.value;])[]b4_locations_if([
+    ]b4_variant_if([b4_symbol_variant([this->type_get ()], [get_value()], [template move],
+                                      [s.get_value()])],
+                   [get_value() = s.get_value();])[]b4_locations_if([
     location = s.location;])[
   }
 

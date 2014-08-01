@@ -351,6 +351,7 @@ b4_location_define])])[
       yyntokens_ = ]b4_tokens_number[  ///< Number of tokens.
     };
 
+
 ]b4_parse_param_vars[
   };
 

@@ -90,7 +90,7 @@ result:
 ;
 
 list:
-  /* nothing */
+  %empty
   {
     /* Generates an empty string list */
     std::cerr << "Empty:  This is $$: " << $$ << std::endl;

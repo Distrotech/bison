@@ -1,9 +1,15 @@
 b4_namespace_open[
 
 
+/*
+#define YYPROTOTYPE(Type)     \
+template <typename YYParser>  \
+Type                          \
+yy_glr_state<YYParser>
+
 
 template <typename YYParser>
-static void yypstates (yy_glr_state<YYParser>* yyst)
+void yypstates (typename YYParser::symbol_type* yyst)
 {
   if (yyst == YY_NULLPTR)
     YYFPRINTF (stderr, "<null>");
@@ -12,29 +18,14 @@ static void yypstates (yy_glr_state<YYParser>* yyst)
   YYFPRINTF (stderr, "\n");
 }
 
-yy_glr_state::yy_glr_state(yy_state_num lr_state, size_t posn, this_type* state
-                     ]b4_locations_if([[, YYLTYPE& loc]])[)
-  : yylrState(lr_state)
-  , yypred(state)
-  , yyposn(posn)
-  , yysemantic(new yy_semantic_simple_value<YYParser>())
-  {
-  ]b4_variant_if([[
-    ]b4_symbol_variant([[yystos[yylrState]]], [[yynewState->yysemantics.yysval]],
-                       [move], [*yyvalp])], [[
-    yynewState->yysemantics.yysval = *yyvalp;]])[
-]b4_locations_if([b4_variant_if(
-  [[std::swap(yyloc, loc);]],
-  [[yyloc = loc;]])])[
-  }
 
-void yy_glr_state::destroy(const std::string& msg)
+YYPROTOTYPE(void)::destroy(const std::string& msg, int type]b4_locuser_formals[)
 {
-  if (yysemantics)
-    yysemantics->destroy(msg, yystos[yylrState]]b4_locuser_args([&yyloc])[);
+  if (yysemantic)
+    yysemantic->destroy(msg, type]b4_locuser_args[);
 }
 
-void yy_glr_state::yy_yypstack ()
+YYPROTOTYPE(void)::yy_yypstack ()
 {
   if (yypred)
     {
@@ -45,6 +36,8 @@ void yy_glr_state::yy_yypstack ()
              (unsigned long int) yyposn);
 }
 
+#undef YYPROTOTYPE
+*/
 
 
 ]b4_namespace_close
